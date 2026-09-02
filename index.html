@@ -735,15 +735,11 @@
     }
   }
 
-  // Insert a card into a corner container. In TR, cards go before the reset btn
-  // so they always claim the anchor slot regardless of whether btn is present.
+  // Snap a card to a corner: the dropped card always becomes the anchor
+  // (first DOM child). In TR the reset btn stays last via prepend.
   function snapToCorner(el, corner) {
     const container = document.getElementById('corner-' + corner);
-    if (corner === 'tr' && container.contains(btn)) {
-      container.insertBefore(el, btn);
-    } else {
-      container.appendChild(el);
-    }
+    container.prepend(el);
   }
 
   makeCard(
