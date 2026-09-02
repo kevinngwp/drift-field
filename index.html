@@ -652,8 +652,8 @@
         return Math.sqrt(dx * dx + dy * dy);
       }
 
-      // Distance from rect center to a named corner of the viewport
-      function toCorner(r, name) {
+      // Distance from rect CENTER to named viewport corner (used for corner selection tiebreaker)
+      function centerToCorner(r, name) {
         const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
         if (name === 'tl') return Math.hypot(cx, cy);
         if (name === 'tr') return Math.hypot(W - cx, cy);
@@ -661,8 +661,20 @@
         return Math.hypot(W - cx, H - cy);
       }
 
+      // Distance from the rect's NEAREST POINT to named viewport corner (used for anchor detection)
+      function nearToCorner(r, name) {
+        if (name === 'tl') return Math.hypot(r.left, r.top);
+        if (name === 'tr') return Math.hypot(W - r.right, r.top);
+        if (name === 'bl') return Math.hypot(r.left, H - r.bottom);
+        return Math.hypot(W - r.right, H - r.bottom);
+      }
+
       const CARD_PROX = 500;       // max gap to an existing card to trigger snap
       const EMPTY_PROX = 350;      // snap to empty corner within this distance
+      const ANCHOR_DIST = 150;     // nearest card edge within this of viewport corner → anchor
+
+      // Non-draggable permanent corner fixtures — always stay as anchor in their corner
+      const isPermanent = c => c.classList.contains('logo') || c.classList.contains('reset-btn');
 
       let best = null, bestCornerDist = Infinity;
 
@@ -675,17 +687,22 @@
           const minGap = Math.min(...children.map(c => rectGap(rect, c.getBoundingClientRect())));
           if (minGap > CARD_PROX) continue;
           eligible = true;
-          asAnchor = toCorner(rect, name) < toCorner(children[0].getBoundingClientRect(), name);
+          // If first child is a permanent element (logo/button), cards always stack second.
+          // Otherwise: anchor if the dragged card's center is in the same screen quadrant as this corner.
+          const cx = (rect.left + rect.right) / 2, cy = (rect.top + rect.bottom) / 2;
+          const inQuadrant = (name === 'tl' && cx < W/2 && cy < H/2) ||
+                             (name === 'tr' && cx > W/2 && cy < H/2) ||
+                             (name === 'bl' && cx < W/2 && cy > H/2) ||
+                             (name === 'br' && cx > W/2 && cy > H/2);
+          asAnchor = !isPermanent(children[0]) && inQuadrant;
         } else {
-          if (toCorner(rect, name) > EMPTY_PROX) continue;
+          if (centerToCorner(rect, name) > EMPTY_PROX) continue;
           eligible = true;
           asAnchor = true;
         }
 
         if (!eligible) continue;
-        // Use dragged card's center distance to the viewport corner as tiebreaker —
-        // prevents wide cards spanning multiple snap zones from always picking the first corner in the list
-        const cornerDist = toCorner(rect, name);
+        const cornerDist = centerToCorner(rect, name);
         if (cornerDist < bestCornerDist) { bestCornerDist = cornerDist; best = { name, asAnchor }; }
       }
 
