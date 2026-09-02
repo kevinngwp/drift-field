@@ -126,7 +126,7 @@
     .top-controls { flex-direction: column; }
     .hint { font-size: 11px; padding: 12px 16px; }
     .reset-btn { margin-left: 0; align-self: flex-start; }
-    .legend { font-size: 10px; padding: 12px 16px; }
+    .legend { font-size: 10px; padding: 12px 16px; bottom: 76px; right: 20px; }
   }
 </style>
 <svg width="0" height="0" style="position:absolute">
@@ -440,7 +440,7 @@
       setSpeed(speedMultiplier - SPEED_STEP);
     }
   });
-  function makeDraggable(el) {
+  function makeDraggable(el, onDetach) {
     let startX, startY, active = false;
     el.addEventListener('pointerdown', (e) => {
       active = true;
@@ -452,7 +452,10 @@
       el.style.bottom = 'auto';
       el.style.margin = '0';
       el.style.zIndex = '20';
-      if (el.parentElement !== document.body) document.body.appendChild(el);
+      if (el.parentElement !== document.body) {
+        document.body.appendChild(el);
+        if (onDetach) { onDetach(); onDetach = null; }
+      }
       startX = e.clientX - rect.left;
       startY = e.clientY - rect.top;
       el.setPointerCapture(e.pointerId);
@@ -472,7 +475,15 @@
     });
     el.addEventListener('pointercancel', () => { active = false; el.style.cursor = 'grab'; });
   }
-  makeDraggable(document.querySelector('.hint'));
+  makeDraggable(document.querySelector('.hint'), () => {
+    const btn = document.getElementById('reset');
+    btn.style.position = 'fixed';
+    btn.style.top = '20px';
+    btn.style.right = '20px';
+    btn.style.left = 'auto';
+    btn.style.margin = '0';
+    document.body.appendChild(btn);
+  });
   makeDraggable(document.querySelector('.legend'));
   setSpeed(1);
   measureMetrics();
