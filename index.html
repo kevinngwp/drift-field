@@ -713,6 +713,7 @@
       }
 
       if (!best) return;
+      if (navigator.vibrate) navigator.vibrate(10);
       if (best.name === homeCorner) {
         onHome(best.asAnchor);
         pendingDetach = onFirstDetach;
