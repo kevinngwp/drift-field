@@ -736,8 +736,11 @@
     });
     el.addEventListener('pointermove', (e) => {
       if (!dragging) return;
-      el.style.left = (e.clientX - dragX) + 'px';
-      el.style.top = (e.clientY - dragY) + 'px';
+      const W = window.innerWidth, H = window.innerHeight;
+      const left = Math.min(Math.max(0, e.clientX - dragX), W - el.offsetWidth);
+      const top = Math.min(Math.max(0, e.clientY - dragY), H - el.offsetHeight);
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
       if (onMove) onMove();
       e.stopPropagation();
     });
