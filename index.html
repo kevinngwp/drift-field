@@ -201,7 +201,7 @@
     right: 20px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
-    color: #26251f;
+    color: rgba(38,37,31,0.65);
     padding: 16px 22px;
     line-height: 1.7;
     cursor: grab;
@@ -695,7 +695,7 @@
       el.style.left = best.left;
       el.style.right = best.right;
       el.style.bottom = best.bottom;
-      if (onNonHomeSnap) onNonHomeSnap(best.name);
+      if (onNonHomeSnap) onNonHomeSnap(best.name, rect);
     }
 
     let dragX, dragY, dragging = false;
@@ -791,12 +791,27 @@
   // Track stacking order per corner — arrival order, last in goes furthest from anchor
   const cornerStacks = { tl: [], tr: [], bl: [], br: [] };
 
-  function addToCorner(el, corner) {
+  function addToCorner(el, corner, releaseRect) {
     for (const c of Object.keys(cornerStacks)) {
       const idx = cornerStacks[c].indexOf(el);
       if (idx !== -1) cornerStacks[c].splice(idx, 1);
     }
-    cornerStacks[corner].unshift(el);
+    const stack = cornerStacks[corner];
+    const isBottom = corner === 'bl' || corner === 'br';
+    if (!releaseRect || stack.length === 0) { stack.unshift(el); return; }
+    // Insert at the position matching where the card was dropped in the stack
+    let insertIdx = stack.length;
+    for (let i = 0; i < stack.length; i++) {
+      const other = stack[i];
+      if (!other.classList.contains('is-floating')) continue;
+      const oRect = other.getBoundingClientRect();
+      if (!isBottom) {
+        if (releaseRect.top < oRect.top + oRect.height / 2) { insertIdx = i; break; }
+      } else {
+        if (releaseRect.bottom > oRect.bottom - oRect.height / 2) { insertIdx = i; break; }
+      }
+    }
+    stack.splice(insertIdx, 0, el);
   }
 
   function removeFromCorner(el) {
@@ -848,10 +863,10 @@
       layoutCorner(old);
       layoutCorner('tl');
     },
-    (corner) => {
+    (corner, releaseRect) => {
       const old = hintState.corner;
       hintState.corner = corner;
-      addToCorner(hintEl, corner);
+      addToCorner(hintEl, corner, releaseRect);
       layoutCorner(old);
       layoutCorner(corner);
     },
@@ -872,10 +887,10 @@
       layoutCorner(old);
       layoutCorner('br');
     },
-    (corner) => {
+    (corner, releaseRect) => {
       const old = legendState.corner;
       legendState.corner = corner;
-      addToCorner(legendEl, corner);
+      addToCorner(legendEl, corner, releaseRect);
       layoutCorner(old);
       layoutCorner(corner);
     },
