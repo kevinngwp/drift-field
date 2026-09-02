@@ -54,8 +54,8 @@
     letter-spacing: 4px;
     margin-right: 2px;
   }
-  .hint-desktop { display: flex; flex-direction: column; gap: 8px; }
-  .hint-mobile { display: none; }
+  .hint-desktop { display: none; }
+  .hint-mobile { display: flex; flex-direction: column; gap: 8px; }
   .hint-desc { font-size: 11px; opacity: 0.65; line-height: 1.45; }
   .key-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
   .key-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.6; }
@@ -260,11 +260,13 @@
   .hint .resize-handle { display: block; }
   .legend .resize-handle { display: block; }
   .is-floating .resize-handle { display: block; }
+  @media (min-width: 1025px) {
+    .hint-desktop { display: flex; flex-direction: column; gap: 8px; }
+    .hint-mobile { display: none; }
+  }
   @media (max-width: 600px) {
     .top-controls { flex-direction: column; }
     .hint { font-size: 11px; padding: 12px 16px; align-self: stretch; }
-    .hint-desktop { display: none; }
-    .hint-mobile { display: flex; flex-direction: column; gap: 10px; }
     .reset-btn { margin-left: 0; align-self: flex-start; }
     .legend { font-size: 10px; padding: 12px 16px; bottom: 76px; right: 20px; }
   }
