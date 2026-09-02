@@ -796,7 +796,7 @@
       const idx = cornerStacks[c].indexOf(el);
       if (idx !== -1) cornerStacks[c].splice(idx, 1);
     }
-    cornerStacks[corner].push(el);
+    cornerStacks[corner].unshift(el);
   }
 
   function removeFromCorner(el) {
