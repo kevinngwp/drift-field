@@ -54,8 +54,8 @@
     letter-spacing: 4px;
     margin-right: 2px;
   }
-  .hint-desktop { display: none; }
-  .hint-mobile { display: flex; flex-direction: column; gap: 8px; }
+  .hint-desktop { display: flex; flex-direction: column; gap: 8px; }
+  .hint-mobile { display: none; }
   .hint-desc { font-size: 11px; opacity: 0.65; line-height: 1.45; }
   .key-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
   .key-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.6; }
@@ -261,6 +261,10 @@
   .hint .resize-handle { display: block; }
   .legend .resize-handle { display: block; }
   .is-floating .resize-handle { display: block; }
+  @media (min-width: 933px) {
+    .hint-desktop { display: none; }
+    .hint-mobile { display: flex; flex-direction: column; gap: 8px; }
+  }
   @media (max-width: 600px) {
     .top-controls { flex-direction: column; }
     .hint { font-size: 11px; padding: 12px 16px; align-self: stretch; }
@@ -301,9 +305,11 @@
       </div>
     </div>
     <div class="hint-mobile">
-      <div class="hint-desc">Tap to drop a point · drag to move</div>
-      <div class="hint-desc">↑ ↓ ← → S — direction</div>
-      <div class="hint-desc">−/+ — speed &nbsp; ⌫ — undo</div>
+      <div class="hint-desc">Click empty space to drop a point. Drag an existing one to move it.</div>
+      <div class="hint-desc">Points drift on their own — the field keeps shifting.</div>
+      <div class="hint-desc">↑ ↓ ← → pick a direction, S picks spin</div>
+      <div class="hint-desc">Space drops at cursor · Backspace retracts</div>
+      <div class="hint-desc">+/- changes drift speed · speed: <span class="speed-label">1.00×</span></div>
     </div>
   </div>
   <button class="reset-btn" id="reset">Clear field</button>
