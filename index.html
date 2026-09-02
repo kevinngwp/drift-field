@@ -790,22 +790,23 @@
     null
   );
 
-  // Tooltip push — slide only the non-logo cards in BL upward, keeping the logo fixed
+  // Tooltip push — push any card that overlaps the tooltip upward until it closes
   const tooltipEl = document.querySelector('.logo-tooltip');
-  const blContainer = document.getElementById('corner-bl');
 
   function updateTooltipPush(active) {
-    const cards = Array.from(blContainer.children).filter(c => !c.classList.contains('logo'));
-    if (!active) {
-      cards.forEach(c => c.style.transform = '');
-      return;
-    }
-    // Measure after the tooltip is in the DOM (opacity:0 but laid out)
+    [hintEl, legendEl].forEach(c => { c.style.transform = ''; });
+    if (!active) return;
     requestAnimationFrame(() => {
       const tRect = tooltipEl.getBoundingClientRect();
-      // Push = tooltipHeight + 10 → results in 20px gap between tooltip top and card
-      const push = tRect.height + 10;
-      cards.forEach(c => c.style.transform = `translateY(-${push}px)`);
+      const gap = 20;
+      [hintEl, legendEl].forEach(card => {
+        const cRect = card.getBoundingClientRect();
+        const overlapsX = cRect.right > tRect.left - gap && cRect.left < tRect.right + gap;
+        const overlapsY = cRect.bottom > tRect.top;
+        if (!overlapsX || !overlapsY) return;
+        const push = cRect.bottom - tRect.top + gap;
+        if (push > 0) card.style.transform = `translateY(-${push}px)`;
+      });
     });
   }
 
