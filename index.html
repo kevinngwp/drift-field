@@ -669,8 +669,9 @@
         return Math.hypot(W - r.right, H - r.bottom);
       }
 
-      const CARD_PROX = 500;       // max gap to an existing card to trigger snap
-      const EMPTY_PROX = 350;      // snap to empty corner within this distance
+      const CARD_PROX = 400;       // max gap to a draggable card to trigger snap
+      const PERM_PROX = 150;       // max gap to a permanent fixture (logo/button) — keeps center free
+      const EMPTY_PROX = 200;      // snap to empty corner within this distance
       const ANCHOR_DIST = 150;     // nearest card edge within this of viewport corner → anchor
 
       // Non-draggable permanent corner fixtures — always stay as anchor in their corner
@@ -684,8 +685,12 @@
         let eligible = false, asAnchor;
 
         if (children.length > 0) {
-          const minGap = Math.min(...children.map(c => rectGap(rect, c.getBoundingClientRect())));
-          if (minGap > CARD_PROX) continue;
+          const minGap = Math.min(...children.map(c => {
+            const prox = isPermanent(c) ? PERM_PROX : CARD_PROX;
+            const gap = rectGap(rect, c.getBoundingClientRect());
+            return gap <= prox ? gap : Infinity;
+          }));
+          if (!isFinite(minGap)) continue;
           eligible = true;
           // If first child is a permanent element (logo/button), cards always stack second.
           // Otherwise: anchor if the dragged card's leading edge is past the anchor's leading edge
@@ -757,6 +762,8 @@
   const logoEl = document.querySelector('.logo');
 
   function snapToCorner(el, corner, asAnchor) {
+    el.removeAttribute('style');
+    el.classList.remove('is-floating');
     const container = document.getElementById('corner-' + corner);
     if (asAnchor) container.prepend(el);
     else container.appendChild(el);
