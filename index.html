@@ -53,8 +53,39 @@
     letter-spacing: 4px;
     margin-right: 2px;
   }
-  .hint-desktop { display: block; }
+  .hint-desktop { display: flex; flex-direction: column; gap: 8px; }
   .hint-mobile { display: none; }
+  .hint-desc { font-size: 11px; opacity: 0.65; line-height: 1.45; }
+  .key-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .key-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.6; }
+  .key-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: #26251f;
+    background: rgba(255,250,240,0.4);
+    border: 1px solid rgba(38,37,31,0.2);
+    border-bottom: 2px solid rgba(38,37,31,0.28);
+    border-radius: 5px;
+    padding: 3px 7px;
+    min-width: 22px;
+    line-height: 1;
+    user-select: none;
+    transition: background 0.08s ease, transform 0.06s ease, border-bottom-width 0.06s ease;
+  }
+  .key-indicator.active {
+    background: rgba(38,37,31,0.2);
+    border-color: rgba(38,37,31,0.38);
+    border-bottom-color: rgba(38,37,31,0.5);
+  }
+  .key-indicator.pressed {
+    transform: translateY(1px);
+    border-bottom-width: 1px;
+    background: rgba(38,37,31,0.28);
+  }
   .mobile-row {
     display: flex;
     align-items: center;
@@ -246,7 +277,27 @@
 <body>
 <div class="top-controls">
   <div class="hint">
-    <div class="hint-desktop">Click empty space to drop a point. Drag an existing one to move it.<br>Points drift on their own — the field keeps shifting.<br><span class="arrows">↑ ↓ ← →</span> pick a direction, S picks spin<br>Space drops at cursor · Backspace retracts<br>+/− changes drift speed · speed: <span class="speed-label">1.0×</span></div>
+    <div class="hint-desktop">
+      <div class="hint-desc">Click to drop a point · drag to move</div>
+      <div class="key-row">
+        <kbd class="key-indicator" data-type="U">↑</kbd>
+        <kbd class="key-indicator" data-type="D">↓</kbd>
+        <kbd class="key-indicator" data-type="L">←</kbd>
+        <kbd class="key-indicator" data-type="R">→</kbd>
+        <kbd class="key-indicator" data-type="S">S</kbd>
+        <span class="key-label">direction</span>
+      </div>
+      <div class="key-row">
+        <kbd class="key-indicator" id="key-space">Space</kbd><span class="key-label">drop</span>
+        <kbd class="key-indicator" id="key-back">⌫</kbd><span class="key-label">undo</span>
+      </div>
+      <div class="key-row">
+        <kbd class="key-indicator" id="key-minus">−</kbd>
+        <span class="speed-label key-label">1.0×</span>
+        <kbd class="key-indicator" id="key-plus">+</kbd>
+        <span class="key-label">speed</span>
+      </div>
+    </div>
     <div class="hint-mobile">
       <div class="mobile-desc">Tap to drop a point · drag to move it</div>
       <div class="mobile-row">
@@ -301,9 +352,15 @@
     document.querySelectorAll('.speed-label').forEach(el => el.textContent = speedMultiplier.toFixed(2) + '×');
   }
 
+  function flashKey(el) {
+    if (!el) return;
+    el.classList.add('pressed');
+    setTimeout(() => el.classList.remove('pressed'), 150);
+  }
+
   function updateDirButtons() {
-    document.querySelectorAll('.dir-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.type === types[nextType]);
+    document.querySelectorAll('.dir-btn, .key-indicator[data-type]').forEach(el => {
+      el.classList.toggle('active', el.dataset.type === types[nextType]);
     });
   }
 
@@ -498,6 +555,7 @@
     if (types.includes(key)) {
       nextType = types.indexOf(key);
       if (previewPoint) previewPoint.type = types[nextType];
+      flashKey(document.querySelector(`.key-indicator[data-type="${types[nextType]}"]`));
       updateDirButtons();
       scheduleRender();
       return;
@@ -506,13 +564,16 @@
       e.preventDefault();
       nextType = types.indexOf(ARROW_TYPE[key]);
       if (previewPoint) previewPoint.type = types[nextType];
+      flashKey(document.querySelector(`.key-indicator[data-type="${types[nextType]}"]`));
       updateDirButtons();
       scheduleRender();
     } else if (key === 'BACKSPACE' || key === 'DELETE') {
       e.preventDefault();
+      flashKey(document.getElementById('key-back'));
       points.pop(); userInteracted = true; scheduleRender();
     } else if (key === ' ') {
       e.preventDefault();
+      flashKey(document.getElementById('key-space'));
       if (previewPoint) {
         points.push(makePoint(previewPoint.x, previewPoint.y, previewPoint.type));
         userInteracted = true;
@@ -521,9 +582,13 @@
         scheduleRender();
       }
     } else if (key === '+' || key === '=') {
-      e.preventDefault(); setSpeed(speedMultiplier + SPEED_STEP);
+      e.preventDefault();
+      flashKey(document.getElementById('key-plus'));
+      setSpeed(speedMultiplier + SPEED_STEP);
     } else if (key === '-' || key === '_') {
-      e.preventDefault(); setSpeed(speedMultiplier - SPEED_STEP);
+      e.preventDefault();
+      flashKey(document.getElementById('key-minus'));
+      setSpeed(speedMultiplier - SPEED_STEP);
     }
   });
 
