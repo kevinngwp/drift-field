@@ -222,7 +222,7 @@
   .corner-stack > * { pointer-events: auto; }
   .corner-tl { top: 20px; left: 20px; flex-direction: column; align-items: flex-start; }
   .corner-tr { top: 20px; right: 20px; flex-direction: column; align-items: flex-end; }
-  .corner-bl { bottom: 20px; left: 20px; flex-direction: column-reverse; align-items: flex-start; }
+  .corner-bl { bottom: 20px; left: 20px; flex-direction: column-reverse; align-items: flex-start; transition: transform 0.25s ease; }
   .corner-br { bottom: 20px; right: 20px; flex-direction: column-reverse; align-items: flex-end; }
   /* Corner handles — visual markers, no resize behavior */
   .resize-handle {
@@ -644,26 +644,58 @@
     function trySnap() {
       const rect = el.getBoundingClientRect();
       const W = window.innerWidth, H = window.innerHeight;
-      const corners = [
-        { name: 'tl', dist: Math.hypot(rect.left, rect.top) },
-        { name: 'tr', dist: Math.hypot(rect.right - W, rect.top) },
-        { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H) },
-        { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H) },
-      ];
-      const ANCHOR_DIST = 130;  // close to corner edge → anchor (prepend)
-      const STACK_DIST = 260;   // vicinity → second place (append)
-      let best = null, minDist = STACK_DIST;
-      for (const c of corners) { if (c.dist < minDist) { minDist = c.dist; best = c; } }
+
+      // Gap between two rects (0 if overlapping)
+      function rectGap(a, b) {
+        const dx = Math.max(b.left - a.right, a.left - b.right, 0);
+        const dy = Math.max(b.top - a.bottom, a.top - b.bottom, 0);
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      // Distance from rect center to a named corner of the viewport
+      function toCorner(r, name) {
+        const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+        if (name === 'tl') return Math.hypot(cx, cy);
+        if (name === 'tr') return Math.hypot(W - cx, cy);
+        if (name === 'bl') return Math.hypot(cx, H - cy);
+        return Math.hypot(W - cx, H - cy);
+      }
+
+      const CARD_PROX = 200;       // max gap to an existing card to trigger snap
+      const EMPTY_PROX = 130;      // snap to empty corner within this distance
+
+      let best = null, bestScore = Infinity;
+
+      for (const name of ['tl', 'tr', 'bl', 'br']) {
+        const container = document.getElementById('corner-' + name);
+        const children = Array.from(container.children).filter(c => c !== el);
+        let score, asAnchor;
+
+        if (children.length > 0) {
+          const minGap = Math.min(...children.map(c => rectGap(rect, c.getBoundingClientRect())));
+          if (minGap > CARD_PROX) continue;
+          score = minGap;
+          // Anchor if dragged card is closer to the corner than the current first child
+          asAnchor = toCorner(rect, name) < toCorner(children[0].getBoundingClientRect(), name);
+        } else {
+          const dist = toCorner(rect, name);
+          if (dist > EMPTY_PROX) continue;
+          score = dist;
+          asAnchor = true;
+        }
+
+        if (score < bestScore) { bestScore = score; best = { name, asAnchor }; }
+      }
+
       if (!best) return;
-      const asAnchor = best.dist < ANCHOR_DIST;
       if (best.name === homeCorner) {
-        onHome(asAnchor);
+        onHome(best.asAnchor);
         pendingDetach = onFirstDetach;
         return;
       }
       el.removeAttribute('style');
       el.classList.add('is-floating');
-      if (onNonHomeSnap) onNonHomeSnap(best.name, asAnchor);
+      if (onNonHomeSnap) onNonHomeSnap(best.name, best.asAnchor);
     }
 
     let dragX, dragY, dragging = false;
@@ -739,31 +771,17 @@
     null
   );
 
-  // Tooltip push — move overlapping cards away when tooltip is visible
+  // Tooltip push — lift the entire BL corner stack when tooltip is open
   const tooltipEl = document.querySelector('.logo-tooltip');
+  const blContainer = document.getElementById('corner-bl');
 
   function updateTooltipPush(active) {
-    [hintEl, legendEl].forEach(card => {
-      if (!active) { card.style.transform = ''; return; }
-      const tRect = tooltipEl.getBoundingClientRect();
-      const cRect = card.getBoundingClientRect();
-      const pad = 16;
-      if (tRect.left - pad >= cRect.right || tRect.right + pad <= cRect.left ||
-          tRect.top - pad >= cRect.bottom || tRect.bottom + pad <= cRect.top) {
-        card.style.transform = ''; return;
-      }
-      const tcx = (tRect.left + tRect.right) / 2;
-      const tcy = (tRect.top + tRect.bottom) / 2;
-      const ccx = (cRect.left + cRect.right) / 2;
-      const ccy = (cRect.top + cRect.bottom) / 2;
-      const overlapX = Math.min(tRect.right + pad, cRect.right) - Math.max(tRect.left - pad, cRect.left);
-      const overlapY = Math.min(tRect.bottom + pad, cRect.bottom) - Math.max(tRect.top - pad, cRect.top);
-      if (overlapX < overlapY) {
-        card.style.transform = `translateX(${(ccx > tcx ? 1 : -1) * overlapX}px)`;
-      } else {
-        card.style.transform = `translateY(${(ccy > tcy ? 1 : -1) * overlapY}px)`;
-      }
-    });
+    if (!active) {
+      blContainer.style.transform = '';
+      return;
+    }
+    const tRect = tooltipEl.getBoundingClientRect();
+    blContainer.style.transform = `translateY(-${tRect.height + 12}px)`;
   }
 
   logoEl.addEventListener('mouseenter', () => requestAnimationFrame(() => updateTooltipPush(true)));
