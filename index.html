@@ -56,9 +56,9 @@
   }
   .hint-desktop { display: flex; flex-direction: column; gap: 8px; }
   .hint-mobile { display: none; }
-  .hint-desc { font-size: 11px; opacity: 0.65; line-height: 1.45; }
+  .hint-desc { font-size: 11px; line-height: 1.45; }
   .key-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-  .key-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.6; }
+  .key-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
   .key-indicator {
     display: inline-flex;
     align-items: center;
@@ -655,26 +655,29 @@
     function trySnap() {
       const rect = el.getBoundingClientRect();
       const W = window.innerWidth, H = window.innerHeight;
-      const PAD = 20, PUSH = 8;
       const corners = [
-        { name: 'tl', dist: Math.hypot(rect.left, rect.top),            isBottom: false, isRight: false },
-        { name: 'tr', dist: Math.hypot(rect.right - W, rect.top),        isBottom: false, isRight: true  },
-        { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H),      isBottom: true,  isRight: false },
-        { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H), isBottom: true,  isRight: true  },
+        { name: 'tl', dist: Math.hypot(rect.left, rect.top),                   top: '20px',    left: '20px',  right: 'auto', bottom: 'auto' },
+        { name: 'tr', dist: Math.hypot(rect.right - W, rect.top),               top: '20px',    right: '20px', left: 'auto',  bottom: 'auto' },
+        { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H),             bottom: '20px', left: '20px',  right: 'auto', top: 'auto'    },
+        { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H),        bottom: '20px', right: '20px', left: 'auto',  top: 'auto'    },
       ];
       let best = null, minDist = 280;
       for (const c of corners) { if (c.dist < minDist) { minDist = c.dist; best = c; } }
       if (!best) {
-        // No corner snap — nudge apart if overlapping
+        // No corner snap — resolve overlap with the peer card by moving this card
         const other = el === hintEl ? legendEl : hintEl;
         const bRect = other.getBoundingClientRect();
+        const PAD = 8;
         const ox = Math.min(rect.right, bRect.right) - Math.max(rect.left, bRect.left);
         const oy = Math.min(rect.bottom, bRect.bottom) - Math.max(rect.top, bRect.top);
         if (ox > 0 && oy > 0) {
           const acx = (rect.left + rect.right) / 2, acy = (rect.top + rect.bottom) / 2;
           const bcx = (bRect.left + bRect.right) / 2, bcy = (bRect.top + bRect.bottom) / 2;
-          if (ox < oy) { el.style.left = (rect.left + (acx > bcx ? 1 : -1) * (ox + PUSH)) + 'px'; }
-          else          { el.style.top  = (rect.top  + (acy > bcy ? 1 : -1) * (oy + PUSH)) + 'px'; }
+          if (ox < oy) {
+            el.style.left = (rect.left + (acx > bcx ? 1 : -1) * (ox + PAD)) + 'px';
+          } else {
+            el.style.top = (rect.top + (acy > bcy ? 1 : -1) * (oy + PAD)) + 'px';
+          }
         }
         return;
       }
@@ -683,37 +686,16 @@
         pendingDetach = onFirstDetach;
         return;
       }
-      // Soft-snap: align to the corner edge, keep the drag Y position
       el.removeAttribute('style');
       el.classList.add('is-floating');
       el.style.position = 'fixed';
       el.style.margin = '0';
       el.style.zIndex = '20';
-      el.style.left  = best.isRight  ? 'auto'       : PAD + 'px';
-      el.style.right = best.isRight  ? PAD + 'px'   : 'auto';
-      if (!best.isBottom) {
-        el.style.top    = Math.max(PAD, rect.top) + 'px';
-        el.style.bottom = 'auto';
-      } else {
-        el.style.bottom = Math.max(PAD, H - rect.bottom) + 'px';
-        el.style.top    = 'auto';
-      }
-      if (onNonHomeSnap) onNonHomeSnap(best.name);
-      // Nudge apart if overlapping the peer after snap
-      const other = el === hintEl ? legendEl : hintEl;
-      if (other.classList.contains('is-floating')) {
-        const aRect = el.getBoundingClientRect();
-        const bRect = other.getBoundingClientRect();
-        const oy = Math.min(aRect.bottom, bRect.bottom) - Math.max(aRect.top, bRect.top);
-        if (oy > 0) {
-          const acy = (aRect.top + aRect.bottom) / 2, bcy = (bRect.top + bRect.bottom) / 2;
-          if (!best.isBottom) {
-            el.style.top = (aRect.top + (acy > bcy ? 1 : -1) * (oy + PUSH)) + 'px';
-          } else {
-            el.style.bottom = (parseFloat(el.style.bottom) + (acy < bcy ? 1 : -1) * (oy + PUSH)) + 'px';
-          }
-        }
-      }
+      el.style.top = best.top;
+      el.style.left = best.left;
+      el.style.right = best.right;
+      el.style.bottom = best.bottom;
+      if (onNonHomeSnap) onNonHomeSnap(best.name, rect);
     }
 
     let dragX, dragY, dragging = false;
@@ -760,6 +742,85 @@
   const hintState = { corner: 'tl' };
   const legendState = { corner: 'br' };
 
+  // Stack all elements at a corner: anchor (permanent/home) stays at PAD,
+  // cards stack below (top corners) or above (bottom corners) the anchor.
+  // Synchronous — no rAF — so position is committed before any paint.
+  function layoutCorner(corner) {
+    if (!corner) return;
+    const PAD = 20, GAP = 8;
+    const isRight = corner === 'tr' || corner === 'br';
+    const isBottom = corner === 'bl' || corner === 'br';
+
+    const cards = (cornerStacks[corner] || []).filter(el => el.classList.contains('is-floating'));
+
+    if (!isBottom) {
+      // Anchor at top: PAD. Cards stack downward below it.
+      let y = PAD;
+      if (corner === 'tr' && btn.parentElement === document.body) {
+        btn.style.position = 'fixed';
+        btn.style.top = PAD + 'px'; btn.style.right = PAD + 'px';
+        btn.style.left = 'auto'; btn.style.margin = '0';
+        y = PAD + btn.getBoundingClientRect().height + GAP;
+      } else if (corner === 'tl' && !hintEl.classList.contains('is-floating')) {
+        y = hintEl.getBoundingClientRect().bottom + GAP;
+      }
+      for (const card of cards) {
+        card.style.top = y + 'px'; card.style.bottom = 'auto';
+        card.style.left = isRight ? 'auto' : PAD + 'px';
+        card.style.right = isRight ? PAD + 'px' : 'auto';
+        y += card.getBoundingClientRect().height + GAP;
+      }
+    } else {
+      // Anchor at bottom: PAD. Cards stack upward above it.
+      let b = PAD;
+      if (corner === 'bl') {
+        logoEl.style.transform = ''; // wordmark never moves — clear any residual
+        b = PAD + logoEl.offsetHeight + GAP;
+      } else if (corner === 'br' && !legendEl.classList.contains('is-floating')) {
+        b = PAD + legendEl.offsetHeight + GAP;
+      }
+      for (const card of cards) {
+        card.style.bottom = b + 'px'; card.style.top = 'auto';
+        card.style.left = isRight ? 'auto' : PAD + 'px';
+        card.style.right = isRight ? PAD + 'px' : 'auto';
+        b += card.getBoundingClientRect().height + GAP;
+      }
+    }
+  }
+
+  // Track stacking order per corner — arrival order, last in goes furthest from anchor
+  const cornerStacks = { tl: [], tr: [], bl: [], br: [] };
+
+  function addToCorner(el, corner, releaseRect) {
+    for (const c of Object.keys(cornerStacks)) {
+      const idx = cornerStacks[c].indexOf(el);
+      if (idx !== -1) cornerStacks[c].splice(idx, 1);
+    }
+    const stack = cornerStacks[corner];
+    const isBottom = corner === 'bl' || corner === 'br';
+    if (!releaseRect || stack.length === 0) { stack.unshift(el); return; }
+    // Insert at the position matching where the card was dropped in the stack
+    let insertIdx = stack.length;
+    for (let i = 0; i < stack.length; i++) {
+      const other = stack[i];
+      if (!other.classList.contains('is-floating')) continue;
+      const oRect = other.getBoundingClientRect();
+      if (!isBottom) {
+        if (releaseRect.top < oRect.top + oRect.height / 2) { insertIdx = i; break; }
+      } else {
+        if (releaseRect.bottom > oRect.bottom - oRect.height / 2) { insertIdx = i; break; }
+      }
+    }
+    stack.splice(insertIdx, 0, el);
+  }
+
+  function removeFromCorner(el) {
+    for (const c of Object.keys(cornerStacks)) {
+      const idx = cornerStacks[c].indexOf(el);
+      if (idx !== -1) { cornerStacks[c].splice(idx, 1); return; }
+    }
+  }
+
   // Push the other card away when the dragging card overlaps it
   function syncPeerCard(draggingEl) {
     const other = draggingEl === hintEl ? legendEl : hintEl;
@@ -791,14 +852,24 @@
     },
     'tl',
     () => {
+      const old = hintState.corner;
       hintState.corner = 'tl';
       hintEl.removeAttribute('style');
       hintEl.classList.remove('is-floating');
       tc.insertBefore(hintEl, tc.firstChild);
       btn.removeAttribute('style');
       tc.appendChild(btn);
+      removeFromCorner(hintEl);
+      layoutCorner(old);
+      layoutCorner('tl');
     },
-    (corner) => { hintState.corner = corner; },
+    (corner, releaseRect) => {
+      const old = hintState.corner;
+      hintState.corner = corner;
+      addToCorner(hintEl, corner, releaseRect);
+      layoutCorner(old);
+      layoutCorner(corner);
+    },
     () => { syncPeerCard(hintEl); },
     () => { legendEl.style.transform = ''; }
   );
@@ -808,18 +879,31 @@
     null,
     'br',
     () => {
+      const old = legendState.corner;
       legendState.corner = 'br';
       legendEl.removeAttribute('style');
       legendEl.classList.remove('is-floating');
+      removeFromCorner(legendEl);
+      layoutCorner(old);
+      layoutCorner('br');
     },
-    (corner) => { legendState.corner = corner; },
+    (corner, releaseRect) => {
+      const old = legendState.corner;
+      legendState.corner = corner;
+      addToCorner(legendEl, corner, releaseRect);
+      layoutCorner(old);
+      layoutCorner(corner);
+    },
     () => { syncPeerCard(legendEl); },
     () => { hintEl.style.transform = ''; }
   );
 
+  // When a card is picked up, re-layout the corner it was at
   hintEl.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn') || e.target.closest('.key-indicator')) return;
+    const old = hintState.corner;
     hintState.corner = null;
+    removeFromCorner(hintEl);
     if (btn.parentElement === document.body) {
       btn.style.position = 'fixed';
       btn.style.top = '20px';
@@ -827,8 +911,14 @@
       btn.style.left = 'auto';
       btn.style.margin = '0';
     }
+    layoutCorner(old);
   });
-  legendEl.addEventListener('pointerdown', () => { legendState.corner = null; });
+  legendEl.addEventListener('pointerdown', () => {
+    const old = legendState.corner;
+    legendState.corner = null;
+    removeFromCorner(legendEl);
+    layoutCorner(old);
+  });
 
   // Tooltip push — move overlapping cards away when tooltip is visible
   const tooltipEl = document.querySelector('.logo-tooltip');
