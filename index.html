@@ -215,8 +215,6 @@
   .rh-bl::after { bottom: 3px; left: 3px; }
   .rh-br { bottom: -8px; right: -8px; }
   .rh-br::after { bottom: 3px; right: 3px; }
-  /* Resize handles: whenever a card is floating, on any screen size */
-  .is-floating .resize-handle { display: block; }
   @media (max-width: 600px) {
     .top-controls { flex-direction: column; }
     .hint { font-size: 11px; padding: 12px 16px; align-self: stretch; }
@@ -224,7 +222,7 @@
     .hint-mobile { display: flex; flex-direction: column; gap: 10px; }
     .reset-btn { margin-left: 0; align-self: flex-start; }
     .legend { font-size: 10px; padding: 12px 16px; bottom: 76px; right: 20px; }
-    /* Legend is always fixed on mobile so always show its handles */
+    .is-floating .resize-handle { display: block; }
     .legend .resize-handle { display: block; }
   }
 </style>
