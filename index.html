@@ -706,9 +706,25 @@
   const btn = document.getElementById('reset');
   const logoEl = document.querySelector('.logo');
 
-  // Snap a card to a corner: prepend so the dropped card is always the anchor.
+  // Snap a card into a corner. If the corner is empty, always anchor (prepend).
+  // If a card is already there, use the drop position to decide: closer to the
+  // corner edge → anchor (prepend); further away → stack behind (append).
   function snapToCorner(el, corner) {
-    document.getElementById('corner-' + corner).prepend(el);
+    const container = document.getElementById('corner-' + corner);
+    const anchor = [...container.children].find(c => c !== btn);
+    if (!anchor) {
+      container.prepend(el);
+      return;
+    }
+    const dragMid = (el.getBoundingClientRect().top + el.getBoundingClientRect().bottom) / 2;
+    const anchorMid = (anchor.getBoundingClientRect().top + anchor.getBoundingClientRect().bottom) / 2;
+    const isBottom = corner === 'bl' || corner === 'br';
+    const wantsAnchor = isBottom ? dragMid >= anchorMid : dragMid <= anchorMid;
+    if (wantsAnchor) {
+      container.prepend(el);
+    } else {
+      container.contains(btn) ? container.insertBefore(el, btn) : container.appendChild(el);
+    }
   }
 
   makeCard(
