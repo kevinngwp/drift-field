@@ -701,7 +701,8 @@
             : rect.bottom > anchorRect.bottom; // bottom corners: larger bottom = closer to corner
           asAnchor = !isPermanent(children[0]) && edgePast;
         } else {
-          if (centerToCorner(rect, name) > EMPTY_PROX) continue;
+          // Use nearest-edge distance so large cards aren't penalised for having a far center
+          if (nearToCorner(rect, name) > EMPTY_PROX) continue;
           eligible = true;
           asAnchor = true;
         }
