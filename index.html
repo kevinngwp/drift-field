@@ -53,6 +53,45 @@
     letter-spacing: 4px;
     margin-right: 2px;
   }
+  .hint-desktop { display: block; }
+  .hint-mobile { display: none; }
+  .mobile-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .mobile-desc {
+    font-size: 11px;
+    opacity: 0.7;
+    line-height: 1.4;
+  }
+  .dir-btn, .ctrl-btn {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: #26251f;
+    background: rgba(255,250,240,0.35);
+    border: 1px solid rgba(38,37,31,0.18);
+    border-radius: 10px;
+    padding: 6px 11px;
+    cursor: pointer;
+    line-height: 1;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dir-btn.active {
+    background: rgba(38,37,31,0.22);
+    border-color: rgba(38,37,31,0.4);
+  }
+  .dir-btn:active, .ctrl-btn:active { opacity: 0.65; }
+  .speed-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #26251f;
+    min-width: 38px;
+    text-align: center;
+  }
   .reset-btn {
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 700;
@@ -70,9 +109,7 @@
     backdrop-filter: blur(20px) saturate(140%);
     border: 1px solid rgba(255,250,240,0.25);
   }
-  .reset-btn:hover {
-    background: rgba(38, 37, 31, 0.58);
-  }
+  .reset-btn:hover { background: rgba(38, 37, 31, 0.58); }
   .logo {
     position: fixed;
     bottom: 20px;
@@ -80,11 +117,7 @@
     z-index: 10;
     pointer-events: none;
   }
-  .logo img {
-    display: block;
-    height: 40px;
-    width: auto;
-  }
+  .logo img { display: block; height: 40px; width: auto; }
   .legend {
     position: fixed;
     bottom: 20px;
@@ -122,11 +155,42 @@
     pointer-events: none;
   }
   .top-controls > * { pointer-events: auto; }
+  /* Corner resize handles — shown on mobile when card is floating or always for legend */
+  .resize-handle {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    display: none;
+    touch-action: none;
+    z-index: 25;
+  }
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: rgba(38,37,31,0.28);
+    border-radius: 3px;
+    border: 1px solid rgba(255,250,240,0.45);
+  }
+  .rh-tl { top: -8px; left: -8px; }
+  .rh-tl::after { top: 3px; left: 3px; }
+  .rh-tr { top: -8px; right: -8px; }
+  .rh-tr::after { top: 3px; right: 3px; }
+  .rh-bl { bottom: -8px; left: -8px; }
+  .rh-bl::after { bottom: 3px; left: 3px; }
+  .rh-br { bottom: -8px; right: -8px; }
+  .rh-br::after { bottom: 3px; right: 3px; }
   @media (max-width: 600px) {
     .top-controls { flex-direction: column; }
     .hint { font-size: 11px; padding: 12px 16px; align-self: stretch; }
+    .hint-desktop { display: none; }
+    .hint-mobile { display: flex; flex-direction: column; gap: 10px; }
     .reset-btn { margin-left: 0; align-self: flex-start; }
     .legend { font-size: 10px; padding: 12px 16px; bottom: 76px; right: 20px; }
+    /* Resize handles: on floating hint and always on legend */
+    .is-floating .resize-handle { display: block; }
+    .legend .resize-handle { display: block; }
   }
 </style>
 <svg width="0" height="0" style="position:absolute">
@@ -139,7 +203,27 @@
 </head>
 <body>
 <div class="top-controls">
-  <div class="hint">Click empty space to drop a point. Drag an existing one to move it.<br>Points drift on their own — the field keeps shifting.<br><span class="arrows">↑ ↓ ← →</span> pick a direction, S picks spin<br>Space drops at cursor · Backspace retracts<br>+/− changes drift speed · speed: <span id="speed-label">1.0×</span></div>
+  <div class="hint">
+    <div class="hint-desktop">Click empty space to drop a point. Drag an existing one to move it.<br>Points drift on their own — the field keeps shifting.<br><span class="arrows">↑ ↓ ← →</span> pick a direction, S picks spin<br>Space drops at cursor · Backspace retracts<br>+/− changes drift speed · speed: <span class="speed-label">1.0×</span></div>
+    <div class="hint-mobile">
+      <div class="mobile-desc">Tap to drop a point · drag to move it</div>
+      <div class="mobile-row">
+        <button class="dir-btn active" data-type="U">↑</button>
+        <button class="dir-btn" data-type="D">↓</button>
+        <button class="dir-btn" data-type="L">←</button>
+        <button class="dir-btn" data-type="R">→</button>
+        <button class="dir-btn" data-type="S">S</button>
+      </div>
+      <div class="mobile-row">
+        <button class="ctrl-btn" id="speed-down">−</button>
+        <span class="speed-label speed-display">1.0×</span>
+        <button class="ctrl-btn" id="speed-up">+</button>
+      </div>
+      <div class="mobile-row">
+        <button class="ctrl-btn" id="undo-btn">Undo last</button>
+      </div>
+    </div>
+  </div>
   <button class="reset-btn" id="reset">Clear field</button>
 </div>
 <div class="logo"><img src="wordmark.svg" alt="Drift Field" width="198" height="29"></div>
@@ -160,129 +244,118 @@
   let cols = 0, rows = 0;
   let points = [];
   let nextType = 0;
-  // Five types, five plain-language behaviors: four push the field in a
-  // literal compass direction, and the fifth (S) swirls it.
   const types = ['U', 'D', 'L', 'R', 'S'];
   const PUSH_DIR = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] };
   let previewPoint = null;
   let draggingPoint = null;
-  // A global multiplier on top of PUSH_SPEED / ORBIT_SPEED below, changed
-  // live with +/- so it speeds up or slows down every point at once.
   let speedMultiplier = 1;
   const SPEED_MIN = 0.25, SPEED_MAX = 3, SPEED_STEP = 0.25;
-  const speedLabel = document.getElementById('speed-label');
+
   function setSpeed(mult) {
     speedMultiplier = Math.round(Math.max(SPEED_MIN, Math.min(SPEED_MAX, mult)) * 100) / 100;
-    if (speedLabel) speedLabel.textContent = speedMultiplier.toFixed(2) + '×';
+    document.querySelectorAll('.speed-label').forEach(el => el.textContent = speedMultiplier.toFixed(2) + '×');
   }
-  // A planted point moves the same way it pushes the field, so the motion
-  // explains itself:
-  //   U / D / L / R physically travel in the direction they push, wrapping
-  //     around to the opposite edge when they leave the field.
-  //   S (spin) orbits the spot where you dropped it, clockwise.
-  // ox/oy is the anchor: the orbit's center for S, or the current position
-  // for a traveling point. phase gives each spin point its own starting
-  // angle so two S points don't move in lockstep.
+
+  function updateDirButtons() {
+    document.querySelectorAll('.dir-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === types[nextType]);
+    });
+  }
+
+  // Mobile controls
+  document.querySelectorAll('.dir-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      nextType = types.indexOf(btn.dataset.type);
+      updateDirButtons();
+    });
+  });
+  document.getElementById('speed-down').addEventListener('click', (e) => {
+    e.stopPropagation();
+    setSpeed(speedMultiplier - SPEED_STEP);
+  });
+  document.getElementById('speed-up').addEventListener('click', (e) => {
+    e.stopPropagation();
+    setSpeed(speedMultiplier + SPEED_STEP);
+  });
+  document.getElementById('undo-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    points.pop();
+    userInteracted = true;
+    scheduleRender();
+  });
+
   const ORBIT_RADIUS = 3.5;
-  const ORBIT_SPEED = 0.3; // radians / second
-  const PUSH_SPEED = 0.35; // grid cells / second
+  const ORBIT_SPEED = 0.3;
+  const PUSH_SPEED = 0.35;
+
   function makePoint(x, y, type) {
     const p = { x, y, ox: x, oy: y, type, phase: Math.random() * Math.PI * 2 };
     const dir = PUSH_DIR[type];
-    if (dir) {
-      p.vx = dir[0] * PUSH_SPEED;
-      p.vy = dir[1] * PUSH_SPEED;
-    }
+    if (dir) { p.vx = dir[0] * PUSH_SPEED; p.vy = dir[1] * PUSH_SPEED; }
     return p;
   }
-  // Measure the field's actual rendered cell size rather than assuming it —
-  // font metrics vary slightly by platform/zoom, and an assumed size is what
-  // causes the grid to fall short of (or overshoot) the container's edge.
+
   function measureMetrics() {
     const probe = document.createElement('span');
-    probe.style.position = 'absolute';
-    probe.style.visibility = 'hidden';
-    probe.style.whiteSpace = 'pre';
-    probe.style.fontFamily = "'JetBrains Mono', monospace";
-    probe.style.fontWeight = '300';
-    probe.style.fontSize = '11px';
-    probe.style.letterSpacing = '1px';
-    probe.style.lineHeight = '12px';
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font-family:"JetBrains Mono",monospace;font-weight:300;font-size:11px;letter-spacing:1px;line-height:12px';
     probe.textContent = '.'.repeat(50);
     document.body.appendChild(probe);
     const rect = probe.getBoundingClientRect();
     if (rect.width > 0) CHAR_W = rect.width / 50;
-    CHAR_H = probe.getBoundingClientRect().height || 12;
+    CHAR_H = rect.height || 12;
     document.body.removeChild(probe);
   }
-  // The embedding iframe can report a small/placeholder size for a frame or
-  // two before it settles at its real dimensions. Rather than trust the very
-  // first measurement, keep any existing points anchored to their
-  // fractional position in the field across every resize until the user
-  // actually places or moves something themselves.
+
   let prevCols = 0, prevRows = 0;
   let userInteracted = false;
+
   function resize() {
     const rect = fieldEl.getBoundingClientRect();
     cols = Math.ceil(rect.width / CHAR_W) + 2;
     rows = Math.ceil(rect.height / CHAR_H) + 2;
     if (points.length > 0 && !userInteracted && prevCols > 0 && prevRows > 0) {
       for (const p of points) {
-        p.x = (p.x / prevCols) * cols;
-        p.y = (p.y / prevRows) * rows;
-        p.ox = (p.ox / prevCols) * cols;
-        p.oy = (p.oy / prevRows) * rows;
+        p.x = (p.x / prevCols) * cols; p.y = (p.y / prevRows) * rows;
+        p.ox = (p.ox / prevCols) * cols; p.oy = (p.oy / prevRows) * rows;
       }
     }
-    prevCols = cols;
-    prevRows = rows;
+    prevCols = cols; prevRows = rows;
   }
+
   function angleToArrow(vx, vy) {
-    const angle = Math.atan2(vy, vx) * 180 / Math.PI;
-    if (angle > -45 && angle <= 45) return '>';
-    if (angle > 45 && angle <= 135) return 'v';
-    if (angle > 135 || angle <= -135) return '<';
+    const a = Math.atan2(vy, vx) * 180 / Math.PI;
+    if (a > -45 && a <= 45) return '>';
+    if (a > 45 && a <= 135) return 'v';
+    if (a > 135 || a <= -135) return '<';
     return '^';
   }
+
   function computeCell(cx, cy, allPoints) {
     if (allPoints.length === 0) return { char: '.', isLetter: false };
-    let nearest = null;
-    let minDist = Infinity;
+    let nearest = null, minDist = Infinity;
     for (const p of allPoints) {
-      const dx = cx - p.x;
-      const dy = cy - p.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < minDist) {
-        minDist = d;
-        nearest = p;
-      }
+      const d = Math.sqrt((cx - p.x) ** 2 + (cy - p.y) ** 2);
+      if (d < minDist) { minDist = d; nearest = p; }
     }
-    if (minDist < INNER_RADIUS) {
-      return { char: nearest.type, isLetter: true };
-    }
-    let vx, vy;
+    if (minDist < INNER_RADIUS) return { char: nearest.type, isLetter: true };
     const dir = PUSH_DIR[nearest.type];
-    if (dir) {
-      // U/D/L/R: every arrow nearby just points that one way.
-      vx = dir[0]; vy = dir[1];
-    } else {
-      // S: arrows swirl around the point.
-      vx = -(cy - nearest.y); vy = (cx - nearest.x);
-    }
+    const vx = dir ? dir[0] : -(cy - nearest.y);
+    const vy = dir ? dir[1] : (cx - nearest.x);
     return { char: angleToArrow(vx, vy), isLetter: false };
   }
+
   function escapeHtml(ch) {
     if (ch === '<') return '&lt;';
     if (ch === '>') return '&gt;';
     return ch;
   }
+
   function render() {
     const allPoints = previewPoint ? [...points, previewPoint] : points;
     const lines = [];
     for (let row = 0; row < rows; row++) {
-      let line = '';
-      let runLetter = null;
-      let runText = '';
+      let line = '', runLetter = null, runText = '';
       const flush = () => {
         if (!runText) return;
         const safe = runText.split('').map(escapeHtml).join('');
@@ -291,10 +364,7 @@
       };
       for (let col = 0; col < cols; col++) {
         const cell = computeCell(col, row, allPoints);
-        if (cell.isLetter !== runLetter) {
-          flush();
-          runLetter = cell.isLetter;
-        }
+        if (cell.isLetter !== runLetter) { flush(); runLetter = cell.isLetter; }
         runText += cell.char;
       }
       flush();
@@ -302,44 +372,31 @@
     }
     fieldEl.innerHTML = lines.join('\n');
   }
+
   let rafPending = false;
   function scheduleRender() {
     if (rafPending) return;
     rafPending = true;
-    requestAnimationFrame(() => {
-      render();
-      rafPending = false;
-    });
+    requestAnimationFrame(() => { render(); rafPending = false; });
   }
+
   function toGrid(clientX, clientY) {
     const rect = fieldEl.getBoundingClientRect();
-    return {
-      x: Math.round((clientX - rect.left) / CHAR_W),
-      y: Math.round((clientY - rect.top) / CHAR_H)
-    };
+    return { x: Math.round((clientX - rect.left) / CHAR_W), y: Math.round((clientY - rect.top) / CHAR_H) };
   }
+
   function findNearbyPoint(gx, gy) {
-    let closest = null;
-    let minDist = Infinity;
+    let closest = null, minDist = Infinity;
     for (const p of points) {
       const d = Math.sqrt((p.x - gx) ** 2 + (p.y - gy) ** 2);
-      if (d < PICK_RADIUS && d < minDist) {
-        minDist = d;
-        closest = p;
-      }
+      if (d < PICK_RADIUS && d < minDist) { minDist = d; closest = p; }
     }
     return closest;
   }
-  window.addEventListener('resize', () => {
-    resize();
-    scheduleRender();
-  });
-  // Pointer Events (not mouse/click events) so this behaves the same whether
-  // the input is a mouse, a trackpad tap, or a touchscreen — and so a "click"
-  // is decided by our own down/up distance-and-time check rather than
-  // relying on the browser to synthesize a native click event, which some
-  // embedded viewers don't do reliably.
-  let pointerDown = null; // { clientX, clientY, time, existing }
+
+  window.addEventListener('resize', () => { resize(); scheduleRender(); });
+
+  let pointerDown = null;
   fieldEl.addEventListener('pointermove', (e) => {
     if (!draggingPoint) {
       const g = toGrid(e.clientX, e.clientY);
@@ -347,39 +404,24 @@
       scheduleRender();
     }
   });
-  fieldEl.addEventListener('pointerleave', () => {
-    previewPoint = null;
-    scheduleRender();
-  });
+  fieldEl.addEventListener('pointerleave', () => { previewPoint = null; scheduleRender(); });
   fieldEl.addEventListener('pointerdown', (e) => {
     const g = toGrid(e.clientX, e.clientY);
     const existing = findNearbyPoint(g.x, g.y);
     pointerDown = { clientX: e.clientX, clientY: e.clientY, time: Date.now(), existing: !!existing };
-    if (existing) {
-      draggingPoint = existing;
-      userInteracted = true;
-    }
+    if (existing) { draggingPoint = existing; userInteracted = true; }
     try { fieldEl.setPointerCapture(e.pointerId); } catch (err) {}
   });
   window.addEventListener('pointermove', (e) => {
     if (draggingPoint) {
       const g = toGrid(e.clientX, e.clientY);
-      draggingPoint.x = g.x;
-      draggingPoint.y = g.y;
-      // Wherever you let go becomes its new anchor — its orbit re-centers
-      // there, or it resumes flowing from there.
-      draggingPoint.ox = g.x;
-      draggingPoint.oy = g.y;
+      draggingPoint.x = g.x; draggingPoint.y = g.y;
+      draggingPoint.ox = g.x; draggingPoint.oy = g.y;
       scheduleRender();
     }
   });
   window.addEventListener('pointerup', (e) => {
-    if (draggingPoint) {
-      draggingPoint = null;
-      pointerDown = null;
-      scheduleRender();
-      return;
-    }
+    if (draggingPoint) { draggingPoint = null; pointerDown = null; scheduleRender(); return; }
     if (!pointerDown) return;
     const dx = e.clientX - pointerDown.clientX;
     const dy = e.clientY - pointerDown.clientY;
@@ -391,26 +433,27 @@
         points.push(makePoint(g.x, g.y, types[nextType]));
         userInteracted = true;
         nextType = (nextType + 1) % types.length;
+        updateDirButtons();
         previewPoint = null;
       }
     }
     pointerDown = null;
     scheduleRender();
   });
+
   document.getElementById('reset').addEventListener('click', () => {
-    points = [];
-    nextType = 0;
-    userInteracted = false;
+    points = []; nextType = 0; userInteracted = false;
+    updateDirButtons();
     scheduleRender();
   });
-  // Arrow keys pick the matching push direction directly; S is the only
-  // type left without an arrow of its own.
+
   const ARROW_TYPE = { ARROWUP: 'U', ARROWDOWN: 'D', ARROWLEFT: 'L', ARROWRIGHT: 'R' };
   window.addEventListener('keydown', (e) => {
     const key = e.key.toUpperCase();
     if (types.includes(key)) {
       nextType = types.indexOf(key);
       if (previewPoint) previewPoint.type = types[nextType];
+      updateDirButtons();
       scheduleRender();
       return;
     }
@@ -418,33 +461,33 @@
       e.preventDefault();
       nextType = types.indexOf(ARROW_TYPE[key]);
       if (previewPoint) previewPoint.type = types[nextType];
+      updateDirButtons();
       scheduleRender();
     } else if (key === 'BACKSPACE' || key === 'DELETE') {
       e.preventDefault();
-      points.pop();
-      userInteracted = true;
-      scheduleRender();
+      points.pop(); userInteracted = true; scheduleRender();
     } else if (key === ' ') {
       e.preventDefault();
       if (previewPoint) {
         points.push(makePoint(previewPoint.x, previewPoint.y, previewPoint.type));
         userInteracted = true;
         nextType = (nextType + 1) % types.length;
+        updateDirButtons();
         scheduleRender();
       }
     } else if (key === '+' || key === '=') {
-      e.preventDefault();
-      setSpeed(speedMultiplier + SPEED_STEP);
+      e.preventDefault(); setSpeed(speedMultiplier + SPEED_STEP);
     } else if (key === '-' || key === '_') {
-      e.preventDefault();
-      setSpeed(speedMultiplier - SPEED_STEP);
+      e.preventDefault(); setSpeed(speedMultiplier - SPEED_STEP);
     }
   });
-  function makeDraggable(el, onDetach, snapCheck) {
-    let startX, startY, active = false;
-    let pendingDetach = onDetach;
-    el.addEventListener('pointerdown', (e) => {
-      active = true;
+
+  // Unified card controller: drag + corner resize + snap-back
+  function makeCard(el, onFirstDetach, snapAction) {
+    let pendingDetach = onFirstDetach;
+
+    function detach() {
+      if (el.parentElement === document.body) return;
       const rect = el.getBoundingClientRect();
       el.style.width = rect.width + 'px';
       el.style.position = 'fixed';
@@ -454,34 +497,89 @@
       el.style.bottom = 'auto';
       el.style.margin = '0';
       el.style.zIndex = '20';
-      if (el.parentElement !== document.body) {
-        document.body.appendChild(el);
-        if (pendingDetach) { pendingDetach(); pendingDetach = null; }
-      }
-      startX = e.clientX - rect.left;
-      startY = e.clientY - rect.top;
+      document.body.appendChild(el);
+      el.classList.add('is-floating');
+      if (pendingDetach) { pendingDetach(); pendingDetach = null; }
+    }
+
+    // Drag
+    let dragX, dragY, dragging = false;
+    el.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.resize-handle') || e.target.closest('.dir-btn') ||
+          e.target.closest('.ctrl-btn')) return;
+      dragging = true;
+      const rect = el.getBoundingClientRect();
+      detach();
+      dragX = e.clientX - rect.left;
+      dragY = e.clientY - rect.top;
       el.setPointerCapture(e.pointerId);
       el.style.cursor = 'grabbing';
       e.stopPropagation();
     });
     el.addEventListener('pointermove', (e) => {
-      if (!active) return;
-      el.style.left = (e.clientX - startX) + 'px';
-      el.style.top = (e.clientY - startY) + 'px';
+      if (!dragging) return;
+      el.style.left = (e.clientX - dragX) + 'px';
+      el.style.top = (e.clientY - dragY) + 'px';
       e.stopPropagation();
     });
     el.addEventListener('pointerup', (e) => {
-      active = false;
+      if (!dragging) return;
+      dragging = false;
       el.style.cursor = 'grab';
-      if (snapCheck && snapCheck(e)) pendingDetach = onDetach;
+      if (snapAction && snapAction(e)) pendingDetach = onFirstDetach;
       e.stopPropagation();
     });
-    el.addEventListener('pointercancel', () => { active = false; el.style.cursor = 'grab'; });
+    el.addEventListener('pointercancel', () => { dragging = false; el.style.cursor = 'grab'; });
+
+    // Corner resize handles
+    [['tl',-1,-1],['tr',1,-1],['bl',-1,1],['br',1,1]].forEach(([id, dx, dy]) => {
+      const h = document.createElement('div');
+      h.className = `resize-handle rh-${id}`;
+      el.appendChild(h);
+      let px0, py0, w0, h0, l0, t0, resizing = false;
+      h.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        resizing = true;
+        detach();
+        const r = el.getBoundingClientRect();
+        if (!el.style.height) el.style.height = r.height + 'px';
+        px0 = e.clientX; py0 = e.clientY;
+        w0 = parseFloat(el.style.width) || r.width;
+        h0 = parseFloat(el.style.height) || r.height;
+        l0 = parseFloat(el.style.left);
+        t0 = parseFloat(el.style.top);
+        h.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      h.addEventListener('pointermove', (e) => {
+        if (!resizing) return;
+        const ddx = e.clientX - px0, ddy = e.clientY - py0;
+        const minW = 130, minH = 80;
+        let nw = w0, nh = h0, nl = l0, nt = t0;
+        if (dx > 0) nw = Math.max(minW, w0 + ddx);
+        else { nw = Math.max(minW, w0 - ddx); nl = l0 + w0 - nw; }
+        if (dy > 0) nh = Math.max(minH, h0 + ddy);
+        else { nh = Math.max(minH, h0 - ddy); nt = t0 + h0 - nh; }
+        el.style.width = nw + 'px';
+        el.style.height = nh + 'px';
+        el.style.left = nl + 'px';
+        el.style.top = nt + 'px';
+        el.style.overflow = 'auto';
+        e.stopPropagation();
+      });
+      h.addEventListener('pointerup', (e) => { resizing = false; e.stopPropagation(); });
+      h.addEventListener('pointercancel', () => { resizing = false; });
+    });
   }
-  makeDraggable(
-    document.querySelector('.hint'),
+
+  const hintEl = document.querySelector('.hint');
+  const legendEl = document.querySelector('.legend');
+  const tc = document.querySelector('.top-controls');
+  const btn = document.getElementById('reset');
+
+  makeCard(
+    hintEl,
     () => {
-      const btn = document.getElementById('reset');
       btn.style.position = 'fixed';
       btn.style.top = '20px';
       btn.style.right = '20px';
@@ -491,11 +589,9 @@
     },
     (e) => {
       if (e.clientX < 220 && e.clientY < 160) {
-        const hint = document.querySelector('.hint');
-        hint.removeAttribute('style');
-        const tc = document.querySelector('.top-controls');
-        tc.insertBefore(hint, tc.firstChild);
-        const btn = document.getElementById('reset');
+        hintEl.removeAttribute('style');
+        hintEl.classList.remove('is-floating');
+        tc.insertBefore(hintEl, tc.firstChild);
         btn.removeAttribute('style');
         tc.appendChild(btn);
         return true;
@@ -503,32 +599,30 @@
       return false;
     }
   );
-  makeDraggable(
-    document.querySelector('.legend'),
+
+  makeCard(
+    legendEl,
     null,
     (e) => {
       if (e.clientX > window.innerWidth - 200 && e.clientY > window.innerHeight - 200) {
-        document.querySelector('.legend').removeAttribute('style');
+        legendEl.removeAttribute('style');
+        legendEl.classList.remove('is-floating');
         return true;
       }
       return false;
     }
   );
+
   setSpeed(1);
+  updateDirButtons();
   measureMetrics();
   resize();
-  new ResizeObserver(() => {
-    resize();
-    scheduleRender();
-  }).observe(fieldEl);
+  new ResizeObserver(() => { resize(); scheduleRender(); }).observe(fieldEl);
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => {
-      measureMetrics();
-      resize();
-      scheduleRender();
-    });
+    document.fonts.ready.then(() => { measureMetrics(); resize(); scheduleRender(); });
   }
   render();
+
   let lastTime = performance.now();
   function tick(now) {
     const dt = Math.min(now - lastTime, 50);
@@ -536,26 +630,17 @@
     if (!draggingPoint) {
       for (const p of points) {
         if (p.type === 'S') {
-          // Orbit the anchor rather than travel — the point spins in place.
-          // phase is accumulated frame by frame (not computed from a fixed
-          // formula) so changing speedMultiplier mid-orbit doesn't jump it.
           p.phase += ORBIT_SPEED * speedMultiplier * (dt / 1000);
-          p.x = p.ox + Math.cos(p.phase) * ORBIT_RADIUS;
-          p.y = p.oy + Math.sin(p.phase) * ORBIT_RADIUS;
-          p.x = Math.max(1, Math.min(cols - 1, p.x));
-          p.y = Math.max(1, Math.min(rows - 1, p.y));
+          p.x = Math.max(1, Math.min(cols - 1, p.ox + Math.cos(p.phase) * ORBIT_RADIUS));
+          p.y = Math.max(1, Math.min(rows - 1, p.oy + Math.sin(p.phase) * ORBIT_RADIUS));
         } else {
-          // Traveling points wrap around rather than bounce — off the
-          // bottom, back in from the top; off the right, back in from
-          // the left, and so on.
           p.ox += p.vx * speedMultiplier * (dt / 16);
           p.oy += p.vy * speedMultiplier * (dt / 16);
           if (p.ox < 0) p.ox += cols;
           if (p.ox > cols) p.ox -= cols;
           if (p.oy < 0) p.oy += rows;
           if (p.oy > rows) p.oy -= rows;
-          p.x = p.ox;
-          p.y = p.oy;
+          p.x = p.ox; p.y = p.oy;
         }
       }
       render();
