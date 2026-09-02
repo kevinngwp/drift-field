@@ -16,6 +16,9 @@
     background: #b7b5ae;
     color: #dad8d0;
     overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   #field {
     position: absolute;
@@ -847,6 +850,8 @@
     if (!logoEl.contains(e.target)) { logoEl.classList.remove('logo-active'); updateTooltipPush(false); }
   });
 
+  document.addEventListener('dragstart', e => e.preventDefault());
+  document.addEventListener('selectstart', e => e.preventDefault());
   setSpeed(1);
   updateDirButtons();
   measureMetrics();
