@@ -810,26 +810,22 @@
     if (!active) return;
     requestAnimationFrame(() => {
       const tRect = tooltipEl.getBoundingClientRect();
+      const H = window.innerHeight;
       const gap = 20;
-      const affected = [];
-      [hintEl, legendEl].forEach(card => {
-        const inBL = blContainer.contains(card);
-        const cRect = card.getBoundingClientRect();
-        const overlapsX = cRect.right > tRect.left - gap && cRect.left < tRect.right + gap;
-        const overlapsY = cRect.bottom > tRect.top;
-        // Include card if it's in the BL stack (above the logo/tooltip area)
-        // OR if it's a floating card that directly overlaps the tooltip
-        if (inBL || (overlapsX && overlapsY)) affected.push({ card, cRect });
-      });
+      // Push all cards whose bottom is in the lower half of the screen —
+      // horizontal position doesn't matter, tooltip presence affects all bottom-area cards
+      const affected = [hintEl, legendEl]
+        .map(card => ({ card, cRect: card.getBoundingClientRect() }))
+        .filter(({ cRect }) => cRect.bottom > H / 2);
       if (!affected.length) return;
-      // Determine push needed — card closest to tooltip drives the amount
-      const pushNeeded = Math.max(...affected.map(({ cRect }) =>
-        Math.max(0, cRect.bottom - tRect.top + gap)
-      ));
-      // Cap so no card goes above the top viewport margin
-      const maxAllowed = Math.min(...affected.map(({ cRect }) => Math.max(0, cRect.top - gap)));
-      const push = Math.min(pushNeeded, maxAllowed);
-      if (push > 0) affected.forEach(({ card }) => { card.style.transform = `translateY(-${push}px)`; });
+      // All affected cards move up by the same amount (tooltip height + gap)
+      const pushNeeded = tRect.height + gap;
+      // Cap individually so no card exits the top viewport margin
+      affected.forEach(({ card, cRect }) => {
+        const maxAllowed = Math.max(0, cRect.top - gap);
+        const push = Math.min(pushNeeded, maxAllowed);
+        if (push > 0) card.style.transform = `translateY(-${push}px)`;
+      });
     });
   }
 
