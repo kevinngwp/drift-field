@@ -214,19 +214,6 @@
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 700;
   }
-  .top-controls {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    right: 20px;
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 12px;
-    z-index: 10;
-    pointer-events: none;
-  }
-  .top-controls > * { pointer-events: auto; }
   /* Corner stacking containers — flex handles reflow, no JS layout needed */
   .corner-stack {
     position: fixed;
@@ -274,9 +261,7 @@
     .hint-mobile { display: flex; flex-direction: column; gap: 8px; }
   }
   @media (max-width: 600px) {
-    .top-controls { flex-direction: column; }
     .hint { font-size: 11px; padding: 12px 16px; }
-    .top-controls .hint { align-self: stretch; }
     .legend { font-size: 10px; padding: 12px 16px; }
     #corner-br { bottom: 76px; }
   }
@@ -290,8 +275,11 @@
 </svg>
 </head>
 <body>
-<div class="top-controls">
-  <div class="hint">
+<div class="logo">
+  <img src="wordmark.svg" alt="Drift Field" width="198" height="29">
+  <div class="logo-tooltip">An interactive typographic experiment by <a href="https://kevin-ng.work" target="_blank" rel="noopener">Kevin Ng</a><br>— click and mess around with letters in motion.</div>
+</div>
+<div id="corner-tl" class="corner-stack corner-tl"><div class="hint">
     <div class="hint-desktop">
       <div class="hint-desc">Click to drop a point · drag to move</div>
       <div class="key-row">
@@ -320,13 +308,7 @@
       <div class="hint-desc">Space drops at cursor · Backspace retracts</div>
       <div class="hint-desc">+/- changes drift speed · speed: <span class="speed-label">1.00×</span></div>
     </div>
-  </div>
-</div>
-<div class="logo">
-  <img src="wordmark.svg" alt="Drift Field" width="198" height="29">
-  <div class="logo-tooltip">An interactive typographic experiment by <a href="https://kevin-ng.work" target="_blank" rel="noopener">Kevin Ng</a><br>— click and mess around with letters in motion.</div>
-</div>
-<div id="corner-tl" class="corner-stack corner-tl"></div>
+</div></div>
 <div id="corner-tr" class="corner-stack corner-tr"><button class="reset-btn" id="reset">Clear field</button></div>
 <div id="corner-bl" class="corner-stack corner-bl"></div>
 <div id="corner-br" class="corner-stack corner-br"><div class="legend">
@@ -721,25 +703,12 @@
 
   const hintEl = document.querySelector('.hint');
   const legendEl = document.querySelector('.legend');
-  const tc = document.querySelector('.top-controls');
   const btn = document.getElementById('reset');
   const logoEl = document.querySelector('.logo');
 
-  // Adjust #corner-tl top so it starts below hint when hint is at home
-  function updateCornerTlTop() {
-    const cornerTl = document.getElementById('corner-tl');
-    if (hintEl.parentElement === tc) {
-      cornerTl.style.top = (hintEl.getBoundingClientRect().bottom + 8) + 'px';
-    } else {
-      cornerTl.style.top = '20px';
-    }
-  }
-
-  // Snap a card to a corner: the dropped card always becomes the anchor
-  // (first DOM child). In TR the reset btn stays last via prepend.
+  // Snap a card to a corner: prepend so the dropped card is always the anchor.
   function snapToCorner(el, corner) {
-    const container = document.getElementById('corner-' + corner);
-    container.prepend(el);
+    document.getElementById('corner-' + corner).prepend(el);
   }
 
   makeCard(
@@ -749,13 +718,9 @@
     () => {
       hintEl.removeAttribute('style');
       hintEl.classList.remove('is-floating');
-      tc.insertBefore(hintEl, tc.firstChild);
-      updateCornerTlTop();
+      document.getElementById('corner-tl').prepend(hintEl);
     },
-    (corner) => {
-      snapToCorner(hintEl, corner);
-      updateCornerTlTop();
-    },
+    (corner) => { snapToCorner(hintEl, corner); },
     null,
     null
   );
@@ -769,18 +734,10 @@
       legendEl.classList.remove('is-floating');
       document.getElementById('corner-br').prepend(legendEl);
     },
-    (corner) => {
-      snapToCorner(legendEl, corner);
-    },
+    (corner) => { snapToCorner(legendEl, corner); },
     null,
     null
   );
-
-  // Update corner-tl top whenever hint is picked up
-  hintEl.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn') || e.target.closest('.key-indicator')) return;
-    updateCornerTlTop();
-  });
 
   // Tooltip push — move overlapping cards away when tooltip is visible
   const tooltipEl = document.querySelector('.logo-tooltip');
@@ -824,10 +781,9 @@
   updateDirButtons();
   measureMetrics();
   resize();
-  updateCornerTlTop();
-  new ResizeObserver(() => { resize(); scheduleRender(); updateCornerTlTop(); }).observe(fieldEl);
+  new ResizeObserver(() => { resize(); scheduleRender(); }).observe(fieldEl);
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => { measureMetrics(); resize(); scheduleRender(); updateCornerTlTop(); });
+    document.fonts.ready.then(() => { measureMetrics(); resize(); scheduleRender(); });
   }
   render();
 
