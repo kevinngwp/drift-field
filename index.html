@@ -124,7 +124,7 @@
   .top-controls > * { pointer-events: auto; }
   @media (max-width: 600px) {
     .top-controls { flex-direction: column; }
-    .hint { font-size: 11px; padding: 12px 16px; }
+    .hint { font-size: 11px; padding: 12px 16px; align-self: stretch; }
     .reset-btn { margin-left: 0; align-self: flex-start; }
     .legend { font-size: 10px; padding: 12px 16px; bottom: 76px; right: 20px; }
   }
@@ -446,6 +446,7 @@
     el.addEventListener('pointerdown', (e) => {
       active = true;
       const rect = el.getBoundingClientRect();
+      el.style.width = rect.width + 'px';
       el.style.position = 'fixed';
       el.style.left = rect.left + 'px';
       el.style.top = rect.top + 'px';
@@ -472,7 +473,7 @@
     el.addEventListener('pointerup', (e) => {
       active = false;
       el.style.cursor = 'grab';
-      if (snapCheck && snapCheck()) pendingDetach = onDetach;
+      if (snapCheck && snapCheck(e)) pendingDetach = onDetach;
       e.stopPropagation();
     });
     el.addEventListener('pointercancel', () => { active = false; el.style.cursor = 'grab'; });
@@ -488,10 +489,9 @@
       btn.style.margin = '0';
       document.body.appendChild(btn);
     },
-    () => {
-      const hint = document.querySelector('.hint');
-      const rect = hint.getBoundingClientRect();
-      if (rect.top < 80 && rect.left < 80) {
+    (e) => {
+      if (e.clientX < 220 && e.clientY < 160) {
+        const hint = document.querySelector('.hint');
         hint.removeAttribute('style');
         const tc = document.querySelector('.top-controls');
         tc.insertBefore(hint, tc.firstChild);
@@ -506,11 +506,9 @@
   makeDraggable(
     document.querySelector('.legend'),
     null,
-    () => {
-      const legend = document.querySelector('.legend');
-      const rect = legend.getBoundingClientRect();
-      if ((window.innerHeight - rect.bottom) < 80 && (window.innerWidth - rect.right) < 80) {
-        legend.removeAttribute('style');
+    (e) => {
+      if (e.clientX > window.innerWidth - 200 && e.clientY > window.innerHeight - 200) {
+        document.querySelector('.legend').removeAttribute('style');
         return true;
       }
       return false;
