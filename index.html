@@ -367,6 +367,42 @@
       updateDirButtons();
     });
   });
+
+  // Keyboard hint buttons — tap to trigger the same action as the keyboard key
+  document.querySelectorAll('.key-indicator[data-type]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      nextType = types.indexOf(btn.dataset.type);
+      flashKey(btn);
+      updateDirButtons();
+      scheduleRender();
+    });
+  });
+  document.getElementById('key-space')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flashKey(document.getElementById('key-space'));
+    const pt = previewPoint || { x: Math.round(cols / 2), y: Math.round(rows / 2) };
+    points.push(makePoint(pt.x, pt.y, types[nextType]));
+    userInteracted = true;
+    nextType = (nextType + 1) % types.length;
+    updateDirButtons();
+    scheduleRender();
+  });
+  document.getElementById('key-back')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flashKey(document.getElementById('key-back'));
+    points.pop(); userInteracted = true; scheduleRender();
+  });
+  document.getElementById('key-plus')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flashKey(document.getElementById('key-plus'));
+    setSpeed(speedMultiplier + SPEED_STEP);
+  });
+  document.getElementById('key-minus')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flashKey(document.getElementById('key-minus'));
+    setSpeed(speedMultiplier - SPEED_STEP);
+  });
   document.getElementById('speed-down')?.addEventListener('click', (e) => {
     e.stopPropagation();
     setSpeed(speedMultiplier - SPEED_STEP);
@@ -618,16 +654,14 @@
 
     function trySnap() {
       const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
       const W = window.innerWidth, H = window.innerHeight;
       const corners = [
-        { name: 'tl', dist: Math.hypot(cx, cy),         top: '20px',  left: '20px',  right: 'auto', bottom: 'auto' },
-        { name: 'tr', dist: Math.hypot(cx - W, cy),      top: '20px',  right: '20px', left: 'auto',  bottom: 'auto' },
-        { name: 'bl', dist: Math.hypot(cx, cy - H),      bottom: '20px', left: '20px', right: 'auto', top: 'auto'  },
-        { name: 'br', dist: Math.hypot(cx - W, cy - H),  bottom: '20px', right: '20px', left: 'auto', top: 'auto'  },
+        { name: 'tl', dist: Math.hypot(rect.left, rect.top),                   top: '20px',    left: '20px',  right: 'auto', bottom: 'auto' },
+        { name: 'tr', dist: Math.hypot(rect.right - W, rect.top),               top: '20px',    right: '20px', left: 'auto',  bottom: 'auto' },
+        { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H),             bottom: '20px', left: '20px',  right: 'auto', top: 'auto'    },
+        { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H),        bottom: '20px', right: '20px', left: 'auto',  top: 'auto'    },
       ];
-      let best = null, minDist = 220;
+      let best = null, minDist = 280;
       for (const c of corners) { if (c.dist < minDist) { minDist = c.dist; best = c; } }
       if (!best) return;
       if (best.name === homeCorner) {
@@ -649,7 +683,7 @@
 
     let dragX, dragY, dragging = false;
     el.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn')) return;
+      if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn') || e.target.closest('.key-indicator')) return;
       dragging = true;
       const rect = el.getBoundingClientRect();
       detach(rect);
@@ -760,7 +794,7 @@
 
   // When a card is picked up, restore whatever it displaced
   hintEl.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn')) return;
+    if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn') || e.target.closest('.key-indicator')) return;
     restoreCorner(hintState.corner);
     hintState.corner = null;
     if (btn.parentElement === document.body) {
