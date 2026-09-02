@@ -189,7 +189,14 @@
     transform: translateY(0);
     transition: opacity 0.15s ease 0s, transform 0.15s ease 0s;
   }
-  .hint, .legend { transition: transform 0.25s ease; }
+  .hint, .legend {
+    transition: transform 0.25s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    will-change: transform;
+    -webkit-touch-callout: none;
+  }
   .legend {
     position: relative;
     font-family: 'JetBrains Mono', monospace;
@@ -625,15 +632,15 @@
 
     function detach(rect) {
       if (!rect) rect = el.getBoundingClientRect();
-      el.style.transform = '';
       el.style.position = 'fixed';
-      el.style.left = rect.left + 'px';
-      el.style.top = rect.top + 'px';
+      el.style.left = '0';
+      el.style.top = '0';
       el.style.right = 'auto';
       el.style.bottom = 'auto';
       el.style.margin = '0';
       el.style.zIndex = '20';
       el.style.width = rect.width + 'px';
+      el.style.transform = `translate3d(${rect.left}px,${rect.top}px,0)`;
       if (el.parentElement !== document.body) {
         document.body.appendChild(el);
         if (pendingDetach) { pendingDetach(); pendingDetach = null; }
@@ -741,8 +748,7 @@
       const W = window.innerWidth, H = window.innerHeight;
       const left = Math.min(Math.max(0, e.clientX - dragX), W - el.offsetWidth);
       const top = Math.min(Math.max(0, e.clientY - dragY), H - el.offsetHeight);
-      el.style.left = left + 'px';
-      el.style.top = top + 'px';
+      el.style.transform = `translate3d(${left}px,${top}px,0)`;
       if (onMove) onMove();
       e.stopPropagation();
     });
