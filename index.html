@@ -654,7 +654,7 @@
         { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H) },
         { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H) },
       ];
-      let best = null, minDist = 280;
+      let best = null, minDist = 100;
       for (const c of corners) { if (c.dist < minDist) { minDist = c.dist; best = c; } }
       if (!best) return;
       if (best.name === homeCorner) {
