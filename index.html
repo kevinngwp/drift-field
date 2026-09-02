@@ -758,15 +758,19 @@
           card.style.right = isRight ? PAD + 'px' : 'auto';
           b += card.getBoundingClientRect().height + GAP;
         }
+        // BL: push logo above ALL stacked cards using total accumulated height
+        if (corner === 'bl') {
+          const logoPush = b - PAD; // sum of all card heights + gaps
+          logoEl.style.transform = logoPush > 0 ? `translateY(-${logoPush}px)` : '';
+        }
       }
-
-      // Always sync wordmark after any corner layout change
-      syncWordmark();
     });
   }
 
-  // Push wordmark up whenever any floating card overlaps it (snapped or dragging)
+  // Push wordmark up when a dragging card overlaps it (snapped-to-BL case handled by layoutCorner)
   function syncWordmark() {
+    if (hintState.corner === 'bl' || legendState.corner === 'bl') return;
+
     const H = window.innerHeight;
     const logoNatBottom = H - 20;
     const logoNatTop = logoNatBottom - logoEl.offsetHeight;
@@ -778,9 +782,7 @@
     for (const card of [hintEl, legendEl]) {
       if (!card.classList.contains('is-floating')) continue;
       const rect = card.getBoundingClientRect();
-      // Horizontal proximity (12px pad so push starts just before overlap)
       if (rect.right + 12 <= logoNatLeft || rect.left - 12 >= logoNatRight) continue;
-      // Vertical: card must actually overlap the logo zone
       if (rect.top >= logoNatBottom || rect.bottom <= logoNatTop) continue;
       pushUp = Math.max(pushUp, logoNatBottom - rect.top + GAP);
     }
