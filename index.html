@@ -523,9 +523,7 @@
     let pendingDetach = onFirstDetach;
 
     function detach() {
-      if (el.parentElement === document.body) return;
       const rect = el.getBoundingClientRect();
-      el.style.width = rect.width + 'px';
       el.style.position = 'fixed';
       el.style.left = rect.left + 'px';
       el.style.top = rect.top + 'px';
@@ -533,9 +531,12 @@
       el.style.bottom = 'auto';
       el.style.margin = '0';
       el.style.zIndex = '20';
-      document.body.appendChild(el);
+      el.style.width = rect.width + 'px';
+      if (el.parentElement !== document.body) {
+        document.body.appendChild(el);
+        if (pendingDetach) { pendingDetach(); pendingDetach = null; }
+      }
       el.classList.add('is-floating');
-      if (pendingDetach) { pendingDetach(); pendingDetach = null; }
     }
 
     // Drag
