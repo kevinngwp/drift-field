@@ -751,9 +751,7 @@
     const isRight = corner === 'tr' || corner === 'br';
     const isBottom = corner === 'bl' || corner === 'br';
 
-    const cards = [];
-    if (hintEl.classList.contains('is-floating') && hintState.corner === corner) cards.push(hintEl);
-    if (legendEl.classList.contains('is-floating') && legendState.corner === corner) cards.push(legendEl);
+    const cards = (cornerStacks[corner] || []).filter(el => el.classList.contains('is-floating'));
 
     if (!isBottom) {
       // Anchor at top: PAD. Cards stack downward below it.
@@ -787,6 +785,24 @@
         card.style.right = isRight ? PAD + 'px' : 'auto';
         b += card.getBoundingClientRect().height + GAP;
       }
+    }
+  }
+
+  // Track stacking order per corner — arrival order, last in goes furthest from anchor
+  const cornerStacks = { tl: [], tr: [], bl: [], br: [] };
+
+  function addToCorner(el, corner) {
+    for (const c of Object.keys(cornerStacks)) {
+      const idx = cornerStacks[c].indexOf(el);
+      if (idx !== -1) cornerStacks[c].splice(idx, 1);
+    }
+    cornerStacks[corner].push(el);
+  }
+
+  function removeFromCorner(el) {
+    for (const c of Object.keys(cornerStacks)) {
+      const idx = cornerStacks[c].indexOf(el);
+      if (idx !== -1) { cornerStacks[c].splice(idx, 1); return; }
     }
   }
 
@@ -828,11 +844,14 @@
       tc.insertBefore(hintEl, tc.firstChild);
       btn.removeAttribute('style');
       tc.appendChild(btn);
+      removeFromCorner(hintEl);
       layoutCorner(old);
+      layoutCorner('tl');
     },
     (corner) => {
       const old = hintState.corner;
       hintState.corner = corner;
+      addToCorner(hintEl, corner);
       layoutCorner(old);
       layoutCorner(corner);
     },
@@ -849,11 +868,14 @@
       legendState.corner = 'br';
       legendEl.removeAttribute('style');
       legendEl.classList.remove('is-floating');
+      removeFromCorner(legendEl);
       layoutCorner(old);
+      layoutCorner('br');
     },
     (corner) => {
       const old = legendState.corner;
       legendState.corner = corner;
+      addToCorner(legendEl, corner);
       layoutCorner(old);
       layoutCorner(corner);
     },
@@ -866,6 +888,7 @@
     if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn') || e.target.closest('.key-indicator')) return;
     const old = hintState.corner;
     hintState.corner = null;
+    removeFromCorner(hintEl);
     if (btn.parentElement === document.body) {
       btn.style.position = 'fixed';
       btn.style.top = '20px';
@@ -878,6 +901,7 @@
   legendEl.addEventListener('pointerdown', () => {
     const old = legendState.corner;
     legendState.corner = null;
+    removeFromCorner(legendEl);
     layoutCorner(old);
   });
 
