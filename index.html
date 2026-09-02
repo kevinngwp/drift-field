@@ -36,6 +36,7 @@
     color: #26251f;
   }
   .hint {
+    position: relative;
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
     color: #26251f;
@@ -185,12 +186,14 @@
     text-underline-offset: 2px;
   }
   .logo:hover .logo-tooltip,
+  .logo.logo-active .logo-tooltip,
   .logo:focus-within .logo-tooltip {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);
     transition: opacity 0.15s ease 0s, transform 0.15s ease 0s;
   }
+  .hint, .legend { transition: transform 0.25s ease; }
   .legend {
     position: fixed;
     bottom: 20px;
@@ -228,7 +231,7 @@
     pointer-events: none;
   }
   .top-controls > * { pointer-events: auto; }
-  /* Corner resize handles — shown on mobile when card is floating or always for legend */
+  /* Corner handles — visual markers, no resize behavior */
   .resize-handle {
     position: absolute;
     width: 32px;
@@ -592,12 +595,20 @@
     }
   });
 
-  // Unified card controller: drag + corner resize + snap-back
-  function makeCard(el, onFirstDetach, snapAction) {
+  // Unified card controller: drag + visual corner handles + snap to any corner
+  function makeCard(el, onFirstDetach, homeCorner, onHome) {
     let pendingDetach = onFirstDetach;
 
-    function detach() {
-      const rect = el.getBoundingClientRect();
+    // Visual corner handles — decorative only, no resize
+    ['tl','tr','bl','br'].forEach(id => {
+      const h = document.createElement('div');
+      h.className = `resize-handle rh-${id}`;
+      el.appendChild(h);
+    });
+
+    function detach(rect) {
+      if (!rect) rect = el.getBoundingClientRect();
+      el.style.transform = '';
       el.style.position = 'fixed';
       el.style.left = rect.left + 'px';
       el.style.top = rect.top + 'px';
@@ -613,14 +624,42 @@
       el.classList.add('is-floating');
     }
 
-    // Drag
+    function trySnap() {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const W = window.innerWidth, H = window.innerHeight;
+      const corners = [
+        { name: 'tl', dist: Math.hypot(cx, cy),         top: '20px',  left: '20px',  right: 'auto', bottom: 'auto' },
+        { name: 'tr', dist: Math.hypot(cx - W, cy),      top: '20px',  right: '20px', left: 'auto',  bottom: 'auto' },
+        { name: 'bl', dist: Math.hypot(cx, cy - H),      bottom: '20px', left: '20px', right: 'auto', top: 'auto'  },
+        { name: 'br', dist: Math.hypot(cx - W, cy - H),  bottom: '20px', right: '20px', left: 'auto', top: 'auto'  },
+      ];
+      let best = null, minDist = 220;
+      for (const c of corners) { if (c.dist < minDist) { minDist = c.dist; best = c; } }
+      if (!best) return;
+      if (best.name === homeCorner) {
+        onHome();
+        pendingDetach = onFirstDetach;
+        return;
+      }
+      el.removeAttribute('style');
+      el.classList.add('is-floating');
+      el.style.position = 'fixed';
+      el.style.margin = '0';
+      el.style.zIndex = '20';
+      el.style.top = best.top;
+      el.style.left = best.left;
+      el.style.right = best.right;
+      el.style.bottom = best.bottom;
+    }
+
     let dragX, dragY, dragging = false;
     el.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.resize-handle') || e.target.closest('.dir-btn') ||
-          e.target.closest('.ctrl-btn')) return;
+      if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn')) return;
       dragging = true;
       const rect = el.getBoundingClientRect();
-      detach();
+      detach(rect);
       dragX = e.clientX - rect.left;
       dragY = e.clientY - rect.top;
       el.setPointerCapture(e.pointerId);
@@ -637,50 +676,10 @@
       if (!dragging) return;
       dragging = false;
       el.style.cursor = 'grab';
-      if (snapAction && snapAction()) pendingDetach = onFirstDetach;
+      trySnap();
       e.stopPropagation();
     });
     el.addEventListener('pointercancel', () => { dragging = false; el.style.cursor = 'grab'; });
-
-    // Corner resize handles
-    [['tl',-1,-1],['tr',1,-1],['bl',-1,1],['br',1,1]].forEach(([id, dx, dy]) => {
-      const h = document.createElement('div');
-      h.className = `resize-handle rh-${id}`;
-      el.appendChild(h);
-      let px0, py0, w0, h0, l0, t0, resizing = false;
-      h.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        resizing = true;
-        detach();
-        const r = el.getBoundingClientRect();
-        if (!el.style.height) el.style.height = r.height + 'px';
-        px0 = e.clientX; py0 = e.clientY;
-        w0 = parseFloat(el.style.width) || r.width;
-        h0 = parseFloat(el.style.height) || r.height;
-        l0 = parseFloat(el.style.left);
-        t0 = parseFloat(el.style.top);
-        h.setPointerCapture(e.pointerId);
-        e.preventDefault();
-      });
-      h.addEventListener('pointermove', (e) => {
-        if (!resizing) return;
-        const ddx = e.clientX - px0, ddy = e.clientY - py0;
-        const minW = 130, minH = 80;
-        let nw = w0, nh = h0, nl = l0, nt = t0;
-        if (dx > 0) nw = Math.max(minW, w0 + ddx);
-        else { nw = Math.max(minW, w0 - ddx); nl = l0 + w0 - nw; }
-        if (dy > 0) nh = Math.max(minH, h0 + ddy);
-        else { nh = Math.max(minH, h0 - ddy); nt = t0 + h0 - nh; }
-        el.style.width = nw + 'px';
-        el.style.height = nh + 'px';
-        el.style.left = nl + 'px';
-        el.style.top = nt + 'px';
-        el.style.overflow = 'auto';
-        e.stopPropagation();
-      });
-      h.addEventListener('pointerup', (e) => { resizing = false; e.stopPropagation(); });
-      h.addEventListener('pointercancel', () => { resizing = false; });
-    });
   }
 
   const hintEl = document.querySelector('.hint');
@@ -698,33 +697,64 @@
       btn.style.margin = '0';
       document.body.appendChild(btn);
     },
+    'tl',
     () => {
-      const rect = hintEl.getBoundingClientRect();
-      if (rect.left < 140 && rect.top < 140) {
-        hintEl.removeAttribute('style');
-        hintEl.classList.remove('is-floating');
-        tc.insertBefore(hintEl, tc.firstChild);
-        btn.removeAttribute('style');
-        tc.appendChild(btn);
-        return true;
-      }
-      return false;
+      hintEl.removeAttribute('style');
+      hintEl.classList.remove('is-floating');
+      tc.insertBefore(hintEl, tc.firstChild);
+      btn.removeAttribute('style');
+      tc.appendChild(btn);
     }
   );
 
   makeCard(
     legendEl,
     null,
+    'br',
     () => {
-      const rect = legendEl.getBoundingClientRect();
-      if (rect.right > window.innerWidth - 140 && rect.bottom > window.innerHeight - 140) {
-        legendEl.removeAttribute('style');
-        legendEl.classList.remove('is-floating');
-        return true;
-      }
-      return false;
+      legendEl.removeAttribute('style');
+      legendEl.classList.remove('is-floating');
     }
   );
+
+  // Tooltip push — move overlapping cards away when tooltip is visible
+  const logoEl = document.querySelector('.logo');
+  const tooltipEl = document.querySelector('.logo-tooltip');
+
+  function updateTooltipPush(active) {
+    [hintEl, legendEl].forEach(card => {
+      if (!active) { card.style.transform = ''; return; }
+      const tRect = tooltipEl.getBoundingClientRect();
+      const cRect = card.getBoundingClientRect();
+      const pad = 16;
+      if (tRect.left - pad >= cRect.right || tRect.right + pad <= cRect.left ||
+          tRect.top - pad >= cRect.bottom || tRect.bottom + pad <= cRect.top) {
+        card.style.transform = ''; return;
+      }
+      const tcx = (tRect.left + tRect.right) / 2;
+      const tcy = (tRect.top + tRect.bottom) / 2;
+      const ccx = (cRect.left + cRect.right) / 2;
+      const ccy = (cRect.top + cRect.bottom) / 2;
+      const overlapX = Math.min(tRect.right + pad, cRect.right) - Math.max(tRect.left - pad, cRect.left);
+      const overlapY = Math.min(tRect.bottom + pad, cRect.bottom) - Math.max(tRect.top - pad, cRect.top);
+      if (overlapX < overlapY) {
+        card.style.transform = `translateX(${(ccx > tcx ? 1 : -1) * overlapX}px)`;
+      } else {
+        card.style.transform = `translateY(${(ccy > tcy ? 1 : -1) * overlapY}px)`;
+      }
+    });
+  }
+
+  logoEl.addEventListener('mouseenter', () => requestAnimationFrame(() => updateTooltipPush(true)));
+  logoEl.addEventListener('mouseleave', () => { if (!logoEl.classList.contains('logo-active')) updateTooltipPush(false); });
+  logoEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = logoEl.classList.toggle('logo-active');
+    requestAnimationFrame(() => updateTooltipPush(on));
+  });
+  document.addEventListener('click', (e) => {
+    if (!logoEl.contains(e.target)) { logoEl.classList.remove('logo-active'); updateTooltipPush(false); }
+  });
 
   setSpeed(1);
   updateDirButtons();
