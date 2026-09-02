@@ -800,8 +800,9 @@
     null
   );
 
-  // Tooltip push — push any card that overlaps the tooltip upward until it closes
+  // Tooltip push — push cards in BL corner stack or floating near tooltip, all equally
   const tooltipEl = document.querySelector('.logo-tooltip');
+  const blContainer = document.getElementById('corner-bl');
 
   function updateTooltipPush(active) {
     [hintEl, legendEl].forEach(c => { c.style.transform = ''; });
@@ -811,15 +812,20 @@
       const gap = 20;
       const affected = [];
       [hintEl, legendEl].forEach(card => {
+        const inBL = blContainer.contains(card);
         const cRect = card.getBoundingClientRect();
         const overlapsX = cRect.right > tRect.left - gap && cRect.left < tRect.right + gap;
         const overlapsY = cRect.bottom > tRect.top;
-        if (overlapsX && overlapsY) affected.push({ card, cRect });
+        // Include card if it's in the BL stack (above the logo/tooltip area)
+        // OR if it's a floating card that directly overlaps the tooltip
+        if (inBL || (overlapsX && overlapsY)) affected.push({ card, cRect });
       });
       if (!affected.length) return;
-      // All affected cards move up by the same amount — the largest push needed
-      const pushNeeded = Math.max(...affected.map(({ cRect }) => cRect.bottom - tRect.top + gap));
-      // Cap by the most constrained card so nothing exits the viewport
+      // Determine push needed — card closest to tooltip drives the amount
+      const pushNeeded = Math.max(...affected.map(({ cRect }) =>
+        Math.max(0, cRect.bottom - tRect.top + gap)
+      ));
+      // Cap so no card goes above the top viewport margin
       const maxAllowed = Math.min(...affected.map(({ cRect }) => Math.max(0, cRect.top - gap)));
       const push = Math.min(pushNeeded, maxAllowed);
       if (push > 0) affected.forEach(({ card }) => { card.style.transform = `translateY(-${push}px)`; });
