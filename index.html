@@ -654,17 +654,20 @@
         { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H) },
         { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H) },
       ];
-      let best = null, minDist = 100;
+      const ANCHOR_DIST = 80;   // close to corner edge → anchor (prepend)
+      const STACK_DIST = 180;   // vicinity → second place (append)
+      let best = null, minDist = STACK_DIST;
       for (const c of corners) { if (c.dist < minDist) { minDist = c.dist; best = c; } }
       if (!best) return;
+      const asAnchor = best.dist < ANCHOR_DIST;
       if (best.name === homeCorner) {
-        onHome();
+        onHome(asAnchor);
         pendingDetach = onFirstDetach;
         return;
       }
       el.removeAttribute('style');
       el.classList.add('is-floating');
-      if (onNonHomeSnap) onNonHomeSnap(best.name);
+      if (onNonHomeSnap) onNonHomeSnap(best.name, asAnchor);
     }
 
     let dragX, dragY, dragging = false;
@@ -706,21 +709,22 @@
   const btn = document.getElementById('reset');
   const logoEl = document.querySelector('.logo');
 
-  // Snap a card to a corner: prepend so the dropped card is always the anchor.
-  function snapToCorner(el, corner) {
-    document.getElementById('corner-' + corner).prepend(el);
+  function snapToCorner(el, corner, asAnchor) {
+    const container = document.getElementById('corner-' + corner);
+    if (asAnchor) container.prepend(el);
+    else container.appendChild(el);
   }
 
   makeCard(
     hintEl,
     null,
     'tl',
-    () => {
+    (asAnchor) => {
       hintEl.removeAttribute('style');
       hintEl.classList.remove('is-floating');
-      document.getElementById('corner-tl').prepend(hintEl);
+      snapToCorner(hintEl, 'tl', asAnchor);
     },
-    (corner) => { snapToCorner(hintEl, corner); },
+    (corner, asAnchor) => { snapToCorner(hintEl, corner, asAnchor); },
     null,
     null
   );
@@ -729,12 +733,12 @@
     legendEl,
     null,
     'br',
-    () => {
+    (asAnchor) => {
       legendEl.removeAttribute('style');
       legendEl.classList.remove('is-floating');
-      document.getElementById('corner-br').prepend(legendEl);
+      snapToCorner(legendEl, 'br', asAnchor);
     },
-    (corner) => { snapToCorner(legendEl, corner); },
+    (corner, asAnchor) => { snapToCorner(legendEl, corner, asAnchor); },
     null,
     null
   );
