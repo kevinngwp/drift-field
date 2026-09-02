@@ -805,7 +805,10 @@
         const overlapsY = cRect.bottom > tRect.top;
         if (!overlapsX || !overlapsY) return;
         const push = cRect.bottom - tRect.top + gap;
-        if (push > 0) card.style.transform = `translateY(-${push}px)`;
+        // Cap so the card's top never goes above the viewport (keep 20px from top edge)
+        const maxPush = Math.max(0, cRect.top - gap);
+        const actualPush = Math.min(push, maxPush);
+        if (actualPush > 0) card.style.transform = `translateY(-${actualPush}px)`;
       });
     });
   }
