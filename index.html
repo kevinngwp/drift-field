@@ -141,10 +141,7 @@
   }
   .reset-btn:hover { background: rgba(38, 37, 31, 0.58); }
   .logo {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 10;
+    position: relative;
     pointer-events: auto;
     cursor: default;
   }
@@ -225,7 +222,7 @@
   .corner-stack > * { pointer-events: auto; }
   .corner-tl { top: 20px; left: 20px; flex-direction: column; align-items: flex-start; }
   .corner-tr { top: 20px; right: 20px; flex-direction: column; align-items: flex-end; }
-  .corner-bl { bottom: 68px; left: 20px; flex-direction: column-reverse; align-items: flex-start; }
+  .corner-bl { bottom: 20px; left: 20px; flex-direction: column-reverse; align-items: flex-start; }
   .corner-br { bottom: 20px; right: 20px; flex-direction: column-reverse; align-items: flex-end; }
   /* Corner handles — visual markers, no resize behavior */
   .resize-handle {
@@ -275,10 +272,6 @@
 </svg>
 </head>
 <body>
-<div class="logo">
-  <img src="wordmark.svg" alt="Drift Field" width="198" height="29">
-  <div class="logo-tooltip">An interactive typographic experiment by <a href="https://kevin-ng.work" target="_blank" rel="noopener">Kevin Ng</a><br>— click and mess around with letters in motion.</div>
-</div>
 <div id="corner-tl" class="corner-stack corner-tl"><div class="hint">
     <div class="hint-desktop">
       <div class="hint-desc">Click to drop a point · drag to move</div>
@@ -310,7 +303,10 @@
     </div>
 </div></div>
 <div id="corner-tr" class="corner-stack corner-tr"><button class="reset-btn" id="reset">Clear field</button></div>
-<div id="corner-bl" class="corner-stack corner-bl"></div>
+<div id="corner-bl" class="corner-stack corner-bl"><div class="logo">
+  <img src="wordmark.svg" alt="Drift Field" width="198" height="29">
+  <div class="logo-tooltip">An interactive typographic experiment by <a href="https://kevin-ng.work" target="_blank" rel="noopener">Kevin Ng</a><br>— click and mess around with letters in motion.</div>
+</div></div>
 <div id="corner-br" class="corner-stack corner-br"><div class="legend">
   <div><span>&uarr;</span>up — pushes the field up</div>
   <div><span>&darr;</span>down — pushes the field down</div>
