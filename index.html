@@ -222,7 +222,7 @@
   .corner-stack > * { pointer-events: auto; }
   .corner-tl { top: 20px; left: 20px; flex-direction: column; align-items: flex-start; }
   .corner-tr { top: 20px; right: 20px; flex-direction: column; align-items: flex-end; }
-  .corner-bl { bottom: 20px; left: 20px; flex-direction: column-reverse; align-items: flex-start; transition: transform 0.25s ease; }
+  .corner-bl { bottom: 20px; left: 20px; flex-direction: column-reverse; align-items: flex-start; }
   .corner-br { bottom: 20px; right: 20px; flex-direction: column-reverse; align-items: flex-end; }
   /* Corner handles — visual markers, no resize behavior */
   .resize-handle {
@@ -771,25 +771,31 @@
     null
   );
 
-  // Tooltip push — lift the entire BL corner stack when tooltip is open
+  // Tooltip push — slide only the non-logo cards in BL upward, keeping the logo fixed
   const tooltipEl = document.querySelector('.logo-tooltip');
   const blContainer = document.getElementById('corner-bl');
 
   function updateTooltipPush(active) {
+    const cards = Array.from(blContainer.children).filter(c => !c.classList.contains('logo'));
     if (!active) {
-      blContainer.style.transform = '';
+      cards.forEach(c => c.style.transform = '');
       return;
     }
-    const tRect = tooltipEl.getBoundingClientRect();
-    blContainer.style.transform = `translateY(-${tRect.height + 12}px)`;
+    // Measure after the tooltip is in the DOM (opacity:0 but laid out)
+    requestAnimationFrame(() => {
+      const tRect = tooltipEl.getBoundingClientRect();
+      // Push = tooltipHeight + 10 → results in 20px gap between tooltip top and card
+      const push = tRect.height + 10;
+      cards.forEach(c => c.style.transform = `translateY(-${push}px)`);
+    });
   }
 
-  logoEl.addEventListener('mouseenter', () => requestAnimationFrame(() => updateTooltipPush(true)));
+  logoEl.addEventListener('mouseenter', () => updateTooltipPush(true));
   logoEl.addEventListener('mouseleave', () => { if (!logoEl.classList.contains('logo-active')) updateTooltipPush(false); });
   logoEl.addEventListener('click', (e) => {
     e.stopPropagation();
     const on = logoEl.classList.toggle('logo-active');
-    requestAnimationFrame(() => updateTooltipPush(on));
+    updateTooltipPush(on);
   });
   document.addEventListener('click', (e) => {
     if (!logoEl.contains(e.target)) { logoEl.classList.remove('logo-active'); updateTooltipPush(false); }
