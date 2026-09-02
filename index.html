@@ -729,6 +729,18 @@
     }
   );
 
+  // When hint is picked up, reset Clear button to standard top-right float
+  hintEl.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn')) return;
+    if (btn.parentElement === document.body) {
+      btn.style.position = 'fixed';
+      btn.style.top = '20px';
+      btn.style.right = '20px';
+      btn.style.left = 'auto';
+      btn.style.margin = '0';
+    }
+  });
+
   // Tooltip push — move overlapping cards away when tooltip is visible
   const logoEl = document.querySelector('.logo');
   const tooltipEl = document.querySelector('.logo-tooltip');
