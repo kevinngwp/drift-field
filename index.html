@@ -799,17 +799,20 @@
     requestAnimationFrame(() => {
       const tRect = tooltipEl.getBoundingClientRect();
       const gap = 20;
+      const affected = [];
       [hintEl, legendEl].forEach(card => {
         const cRect = card.getBoundingClientRect();
         const overlapsX = cRect.right > tRect.left - gap && cRect.left < tRect.right + gap;
         const overlapsY = cRect.bottom > tRect.top;
-        if (!overlapsX || !overlapsY) return;
-        const push = cRect.bottom - tRect.top + gap;
-        // Cap so the card's top never goes above the viewport (keep 20px from top edge)
-        const maxPush = Math.max(0, cRect.top - gap);
-        const actualPush = Math.min(push, maxPush);
-        if (actualPush > 0) card.style.transform = `translateY(-${actualPush}px)`;
+        if (overlapsX && overlapsY) affected.push({ card, cRect });
       });
+      if (!affected.length) return;
+      // All affected cards move up by the same amount — the largest push needed
+      const pushNeeded = Math.max(...affected.map(({ cRect }) => cRect.bottom - tRect.top + gap));
+      // Cap by the most constrained card so nothing exits the viewport
+      const maxAllowed = Math.min(...affected.map(({ cRect }) => Math.max(0, cRect.top - gap)));
+      const push = Math.min(pushNeeded, maxAllowed);
+      if (push > 0) affected.forEach(({ card }) => { card.style.transform = `translateY(-${push}px)`; });
     });
   }
 
