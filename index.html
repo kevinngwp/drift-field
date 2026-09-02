@@ -151,6 +151,7 @@
     cursor: default;
   }
   .logo img { display: block; height: 40px; width: auto; }
+  .logo { transition: transform 0.25s ease; }
   .logo::before {
     content: '';
     position: absolute;
@@ -260,7 +261,7 @@
   .hint .resize-handle { display: block; }
   .legend .resize-handle { display: block; }
   .is-floating .resize-handle { display: block; }
-  @media (min-width: 1025px) {
+  @media (min-width: 1000px) and (hover: hover) {
     .hint-desktop { display: flex; flex-direction: column; gap: 8px; }
     .hint-mobile { display: none; }
   }
@@ -676,6 +677,40 @@
   const legendEl = document.querySelector('.legend');
   const tc = document.querySelector('.top-controls');
   const btn = document.getElementById('reset');
+  const logoEl = document.querySelector('.logo');
+
+  // Track which corner each card is snapped to (null = floating)
+  const hintState = { corner: 'tl' };
+  const legendState = { corner: 'br' };
+
+  // Restore whatever was displaced at a given corner back to its original position
+  function restoreCorner(corner) {
+    if (corner === 'tr' && btn.parentElement === document.body) {
+      btn.style.top = '20px';
+      btn.style.left = 'auto';
+      btn.style.right = '20px';
+      btn.style.margin = '0';
+    } else if (corner === 'bl') {
+      logoEl.style.transform = '';
+    }
+  }
+
+  // Displace resident element at a corner when a card snaps there
+  function applyCorner(corner, cardEl) {
+    requestAnimationFrame(() => {
+      const rect = cardEl.getBoundingClientRect();
+      if (corner === 'tr') {
+        if (btn.parentElement !== document.body) document.body.appendChild(btn);
+        btn.style.position = 'fixed';
+        btn.style.top = (rect.bottom + 8) + 'px';
+        btn.style.right = '20px';
+        btn.style.left = 'auto';
+        btn.style.margin = '0';
+      } else if (corner === 'bl') {
+        logoEl.style.transform = `translateY(-${rect.height + 10}px)`;
+      }
+    });
+  }
 
   makeCard(
     hintEl,
@@ -689,6 +724,8 @@
     },
     'tl',
     () => {
+      restoreCorner(hintState.corner);
+      hintState.corner = 'tl';
       hintEl.removeAttribute('style');
       hintEl.classList.remove('is-floating');
       tc.insertBefore(hintEl, tc.firstChild);
@@ -696,18 +733,9 @@
       tc.appendChild(btn);
     },
     (corner) => {
-      if (corner === 'tr') {
-        // Stack Clear button below hint when both land in top-right
-        requestAnimationFrame(() => {
-          const hRect = hintEl.getBoundingClientRect();
-          btn.style.position = 'fixed';
-          btn.style.top = (hRect.bottom + 8) + 'px';
-          btn.style.right = '20px';
-          btn.style.left = 'auto';
-          btn.style.margin = '0';
-          if (btn.parentElement !== document.body) document.body.appendChild(btn);
-        });
-      }
+      restoreCorner(hintState.corner);
+      hintState.corner = corner;
+      applyCorner(corner, hintEl);
     }
   );
 
@@ -716,22 +744,23 @@
     null,
     'br',
     () => {
+      restoreCorner(legendState.corner);
+      legendState.corner = 'br';
       legendEl.removeAttribute('style');
       legendEl.classList.remove('is-floating');
     },
     (corner) => {
-      if (corner === 'bl') {
-        // Stack above wordmark when legend lands in bottom-left
-        const logoRect = document.querySelector('.logo').getBoundingClientRect();
-        legendEl.style.top = 'auto';
-        legendEl.style.bottom = (window.innerHeight - logoRect.top + 10) + 'px';
-      }
+      restoreCorner(legendState.corner);
+      legendState.corner = corner;
+      applyCorner(corner, legendEl);
     }
   );
 
-  // When hint is picked up, reset Clear button to standard top-right float
+  // When a card is picked up, restore whatever it displaced
   hintEl.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn')) return;
+    restoreCorner(hintState.corner);
+    hintState.corner = null;
     if (btn.parentElement === document.body) {
       btn.style.position = 'fixed';
       btn.style.top = '20px';
@@ -740,9 +769,12 @@
       btn.style.margin = '0';
     }
   });
+  legendEl.addEventListener('pointerdown', () => {
+    restoreCorner(legendState.corner);
+    legendState.corner = null;
+  });
 
   // Tooltip push — move overlapping cards away when tooltip is visible
-  const logoEl = document.querySelector('.logo');
   const tooltipEl = document.querySelector('.logo-tooltip');
 
   function updateTooltipPush(active) {
