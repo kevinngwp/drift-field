@@ -196,16 +196,13 @@
   }
   .hint, .legend { transition: transform 0.25s ease; }
   .legend {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
+    position: relative;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     color: #26251f;
     padding: 16px 22px;
     line-height: 1.7;
     cursor: grab;
-    z-index: 10;
     background: linear-gradient(160deg, rgba(255,249,238,0.28), rgba(255,249,238,0.14));
     border-radius: 32px;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), inset 1px 0 0 rgba(255,90,90,0.08), inset -1px 0 0 rgba(90,150,255,0.08), 0 8px 32px rgba(60,50,30,0.08);
@@ -232,6 +229,19 @@
     pointer-events: none;
   }
   .top-controls > * { pointer-events: auto; }
+  /* Corner stacking containers — flex handles reflow, no JS layout needed */
+  .corner-stack {
+    position: fixed;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .corner-stack > * { pointer-events: auto; }
+  .corner-tl { top: 20px; left: 20px; flex-direction: column; align-items: flex-start; }
+  .corner-tr { top: 20px; right: 20px; flex-direction: column; align-items: flex-end; }
+  .corner-bl { bottom: 68px; left: 20px; flex-direction: column-reverse; align-items: flex-start; }
+  .corner-br { bottom: 20px; right: 20px; flex-direction: column-reverse; align-items: flex-end; }
   /* Corner handles — visual markers, no resize behavior */
   .resize-handle {
     position: absolute;
@@ -267,9 +277,11 @@
   }
   @media (max-width: 600px) {
     .top-controls { flex-direction: column; }
-    .hint { font-size: 11px; padding: 12px 16px; align-self: stretch; }
+    .hint { font-size: 11px; padding: 12px 16px; }
+    .top-controls .hint { align-self: stretch; }
     .reset-btn { margin-left: 0; align-self: flex-start; }
-    .legend { font-size: 10px; padding: 12px 16px; bottom: 76px; right: 20px; }
+    .legend { font-size: 10px; padding: 12px 16px; }
+    #corner-br { bottom: 76px; }
   }
 </style>
 <svg width="0" height="0" style="position:absolute">
@@ -318,13 +330,16 @@
   <img src="wordmark.svg" alt="Drift Field" width="198" height="29">
   <div class="logo-tooltip">An interactive typographic experiment by <a href="https://kevin-ng.work" target="_blank" rel="noopener">Kevin Ng</a><br>— click and mess around with letters in motion.</div>
 </div>
-<div class="legend">
+<div id="corner-tl" class="corner-stack corner-tl"></div>
+<div id="corner-tr" class="corner-stack corner-tr"></div>
+<div id="corner-bl" class="corner-stack corner-bl"></div>
+<div id="corner-br" class="corner-stack corner-br"><div class="legend">
   <div><span>&uarr;</span>up — pushes the field up</div>
   <div><span>&darr;</span>down — pushes the field down</div>
   <div><span>&larr;</span>left — pushes the field left</div>
   <div><span>&rarr;</span>right — pushes the field right</div>
   <div><span>S</span>spin — swirls the field around</div>
-</div>
+</div></div>
 <div id="field"></div>
 <script>
   const fieldEl = document.getElementById('field');
@@ -656,31 +671,14 @@
       const rect = el.getBoundingClientRect();
       const W = window.innerWidth, H = window.innerHeight;
       const corners = [
-        { name: 'tl', dist: Math.hypot(rect.left, rect.top),                   top: '20px',    left: '20px',  right: 'auto', bottom: 'auto' },
-        { name: 'tr', dist: Math.hypot(rect.right - W, rect.top),               top: '20px',    right: '20px', left: 'auto',  bottom: 'auto' },
-        { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H),             bottom: '20px', left: '20px',  right: 'auto', top: 'auto'    },
-        { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H),        bottom: '20px', right: '20px', left: 'auto',  top: 'auto'    },
+        { name: 'tl', dist: Math.hypot(rect.left, rect.top) },
+        { name: 'tr', dist: Math.hypot(rect.right - W, rect.top) },
+        { name: 'bl', dist: Math.hypot(rect.left, rect.bottom - H) },
+        { name: 'br', dist: Math.hypot(rect.right - W, rect.bottom - H) },
       ];
       let best = null, minDist = 280;
       for (const c of corners) { if (c.dist < minDist) { minDist = c.dist; best = c; } }
-      if (!best) {
-        // No corner snap — resolve overlap with the peer card by moving this card
-        const other = el === hintEl ? legendEl : hintEl;
-        const bRect = other.getBoundingClientRect();
-        const PAD = 8;
-        const ox = Math.min(rect.right, bRect.right) - Math.max(rect.left, bRect.left);
-        const oy = Math.min(rect.bottom, bRect.bottom) - Math.max(rect.top, bRect.top);
-        if (ox > 0 && oy > 0) {
-          const acx = (rect.left + rect.right) / 2, acy = (rect.top + rect.bottom) / 2;
-          const bcx = (bRect.left + bRect.right) / 2, bcy = (bRect.top + bRect.bottom) / 2;
-          if (ox < oy) {
-            el.style.left = (rect.left + (acx > bcx ? 1 : -1) * (ox + PAD)) + 'px';
-          } else {
-            el.style.top = (rect.top + (acy > bcy ? 1 : -1) * (oy + PAD)) + 'px';
-          }
-        }
-        return;
-      }
+      if (!best) return;
       if (best.name === homeCorner) {
         onHome();
         pendingDetach = onFirstDetach;
@@ -688,13 +686,6 @@
       }
       el.removeAttribute('style');
       el.classList.add('is-floating');
-      el.style.position = 'fixed';
-      el.style.margin = '0';
-      el.style.zIndex = '20';
-      el.style.top = best.top;
-      el.style.left = best.left;
-      el.style.right = best.right;
-      el.style.bottom = best.bottom;
       if (onNonHomeSnap) onNonHomeSnap(best.name);
     }
 
@@ -738,90 +729,23 @@
   const btn = document.getElementById('reset');
   const logoEl = document.querySelector('.logo');
 
-  // Track which corner each card is snapped to (null = floating)
-  const hintState = { corner: 'tl' };
-  const legendState = { corner: 'br' };
-
-  // Stack all elements at a corner: anchor (permanent/home) stays at PAD,
-  // cards stack below (top corners) or above (bottom corners) the anchor.
-  // Synchronous — no rAF — so position is committed before any paint.
-  function layoutCorner(corner) {
-    if (!corner) return;
-    const PAD = 20, GAP = 8;
-    const isRight = corner === 'tr' || corner === 'br';
-    const isBottom = corner === 'bl' || corner === 'br';
-
-    const cards = (cornerStacks[corner] || []).filter(el => el.classList.contains('is-floating'));
-
-    if (!isBottom) {
-      // Anchor at top: PAD. Cards stack downward below it.
-      let y = PAD;
-      if (corner === 'tr' && btn.parentElement === document.body) {
-        btn.style.position = 'fixed';
-        btn.style.top = PAD + 'px'; btn.style.right = PAD + 'px';
-        btn.style.left = 'auto'; btn.style.margin = '0';
-        y = PAD + btn.getBoundingClientRect().height + GAP;
-      } else if (corner === 'tl' && !hintEl.classList.contains('is-floating')) {
-        y = hintEl.getBoundingClientRect().bottom + GAP;
-      }
-      for (const card of cards) {
-        card.style.top = y + 'px'; card.style.bottom = 'auto';
-        card.style.left = isRight ? 'auto' : PAD + 'px';
-        card.style.right = isRight ? PAD + 'px' : 'auto';
-        y += card.getBoundingClientRect().height + GAP;
-      }
+  // Adjust #corner-tl top so it starts below hint when hint is at home
+  function updateCornerTlTop() {
+    const cornerTl = document.getElementById('corner-tl');
+    if (hintEl.parentElement === tc) {
+      cornerTl.style.top = (hintEl.getBoundingClientRect().bottom + 8) + 'px';
     } else {
-      // Anchor at bottom: PAD. Cards stack upward above it.
-      let b = PAD;
-      if (corner === 'bl') {
-        logoEl.style.transform = ''; // wordmark never moves — clear any residual
-        b = PAD + logoEl.offsetHeight + GAP;
-      } else if (corner === 'br' && !legendEl.classList.contains('is-floating')) {
-        b = PAD + legendEl.offsetHeight + GAP;
-      }
-      for (const card of cards) {
-        card.style.bottom = b + 'px'; card.style.top = 'auto';
-        card.style.left = isRight ? 'auto' : PAD + 'px';
-        card.style.right = isRight ? PAD + 'px' : 'auto';
-        b += card.getBoundingClientRect().height + GAP;
-      }
+      cornerTl.style.top = '20px';
     }
   }
 
-  // Track stacking order per corner — arrival order, last in goes furthest from anchor
-  const cornerStacks = { tl: [], tr: [], bl: [], br: [] };
-
-  function addToCorner(el, corner) {
-    for (const c of Object.keys(cornerStacks)) {
-      const idx = cornerStacks[c].indexOf(el);
-      if (idx !== -1) cornerStacks[c].splice(idx, 1);
-    }
-    cornerStacks[corner].unshift(el);
-  }
-
-  function removeFromCorner(el) {
-    for (const c of Object.keys(cornerStacks)) {
-      const idx = cornerStacks[c].indexOf(el);
-      if (idx !== -1) { cornerStacks[c].splice(idx, 1); return; }
-    }
-  }
-
-  // Push the other card away when the dragging card overlaps it
-  function syncPeerCard(draggingEl) {
-    const other = draggingEl === hintEl ? legendEl : hintEl;
-    if (!other.classList.contains('is-floating')) return;
-    const aRect = draggingEl.getBoundingClientRect();
-    const bRect = other.getBoundingClientRect();
-    const PAD = 8;
-    const ox = Math.min(aRect.right + PAD, bRect.right) - Math.max(aRect.left - PAD, bRect.left);
-    const oy = Math.min(aRect.bottom + PAD, bRect.bottom) - Math.max(aRect.top - PAD, bRect.top);
-    if (ox <= 0 || oy <= 0) { other.style.transform = ''; return; }
-    const acx = (aRect.left + aRect.right) / 2, acy = (aRect.top + aRect.bottom) / 2;
-    const bcx = (bRect.left + bRect.right) / 2, bcy = (bRect.top + bRect.bottom) / 2;
-    if (ox < oy) {
-      other.style.transform = `translateX(${(bcx > acx ? 1 : -1) * ox}px)`;
+  // Adjust #corner-tr top so it starts below the floating reset btn
+  function updateCornerTrTop() {
+    const cornerTr = document.getElementById('corner-tr');
+    if (btn.parentElement === document.body) {
+      cornerTr.style.top = (btn.getBoundingClientRect().bottom + 8) + 'px';
     } else {
-      other.style.transform = `translateY(${(bcy > acy ? 1 : -1) * oy}px)`;
+      cornerTr.style.top = '20px';
     }
   }
 
@@ -834,29 +758,24 @@
       btn.style.left = 'auto';
       btn.style.margin = '0';
       document.body.appendChild(btn);
+      updateCornerTrTop();
     },
     'tl',
     () => {
-      const old = hintState.corner;
-      hintState.corner = 'tl';
       hintEl.removeAttribute('style');
       hintEl.classList.remove('is-floating');
       tc.insertBefore(hintEl, tc.firstChild);
       btn.removeAttribute('style');
       tc.appendChild(btn);
-      removeFromCorner(hintEl);
-      layoutCorner(old);
-      layoutCorner('tl');
+      updateCornerTlTop();
+      updateCornerTrTop();
     },
     (corner) => {
-      const old = hintState.corner;
-      hintState.corner = corner;
-      addToCorner(hintEl, corner);
-      layoutCorner(old);
-      layoutCorner(corner);
+      document.getElementById('corner-' + corner).appendChild(hintEl);
+      updateCornerTlTop();
     },
-    () => { syncPeerCard(hintEl); },
-    () => { legendEl.style.transform = ''; }
+    null,
+    null
   );
 
   makeCard(
@@ -864,45 +783,21 @@
     null,
     'br',
     () => {
-      const old = legendState.corner;
-      legendState.corner = 'br';
       legendEl.removeAttribute('style');
       legendEl.classList.remove('is-floating');
-      removeFromCorner(legendEl);
-      layoutCorner(old);
-      layoutCorner('br');
+      document.getElementById('corner-br').prepend(legendEl);
     },
     (corner) => {
-      const old = legendState.corner;
-      legendState.corner = corner;
-      addToCorner(legendEl, corner);
-      layoutCorner(old);
-      layoutCorner(corner);
+      document.getElementById('corner-' + corner).appendChild(legendEl);
     },
-    () => { syncPeerCard(legendEl); },
-    () => { hintEl.style.transform = ''; }
+    null,
+    null
   );
 
-  // When a card is picked up, re-layout the corner it was at
+  // Update corner-tl top whenever hint is picked up
   hintEl.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.dir-btn') || e.target.closest('.ctrl-btn') || e.target.closest('.key-indicator')) return;
-    const old = hintState.corner;
-    hintState.corner = null;
-    removeFromCorner(hintEl);
-    if (btn.parentElement === document.body) {
-      btn.style.position = 'fixed';
-      btn.style.top = '20px';
-      btn.style.right = '20px';
-      btn.style.left = 'auto';
-      btn.style.margin = '0';
-    }
-    layoutCorner(old);
-  });
-  legendEl.addEventListener('pointerdown', () => {
-    const old = legendState.corner;
-    legendState.corner = null;
-    removeFromCorner(legendEl);
-    layoutCorner(old);
+    updateCornerTlTop();
   });
 
   // Tooltip push — move overlapping cards away when tooltip is visible
@@ -947,9 +842,11 @@
   updateDirButtons();
   measureMetrics();
   resize();
-  new ResizeObserver(() => { resize(); scheduleRender(); }).observe(fieldEl);
+  updateCornerTlTop();
+  updateCornerTrTop();
+  new ResizeObserver(() => { resize(); scheduleRender(); updateCornerTlTop(); updateCornerTrTop(); }).observe(fieldEl);
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => { measureMetrics(); resize(); scheduleRender(); });
+    document.fonts.ready.then(() => { measureMetrics(); resize(); scheduleRender(); updateCornerTlTop(); updateCornerTrTop(); });
   }
   render();
 
