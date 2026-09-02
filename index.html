@@ -664,27 +664,29 @@
       const CARD_PROX = 500;       // max gap to an existing card to trigger snap
       const EMPTY_PROX = 350;      // snap to empty corner within this distance
 
-      let best = null, bestScore = Infinity;
+      let best = null, bestCornerDist = Infinity;
 
       for (const name of ['tl', 'tr', 'bl', 'br']) {
         const container = document.getElementById('corner-' + name);
         const children = Array.from(container.children).filter(c => c !== el);
-        let score, asAnchor;
+        let eligible = false, asAnchor;
 
         if (children.length > 0) {
           const minGap = Math.min(...children.map(c => rectGap(rect, c.getBoundingClientRect())));
           if (minGap > CARD_PROX) continue;
-          score = minGap;
-          // Anchor if dragged card is closer to the corner than the current first child
+          eligible = true;
           asAnchor = toCorner(rect, name) < toCorner(children[0].getBoundingClientRect(), name);
         } else {
-          const dist = toCorner(rect, name);
-          if (dist > EMPTY_PROX) continue;
-          score = dist;
+          if (toCorner(rect, name) > EMPTY_PROX) continue;
+          eligible = true;
           asAnchor = true;
         }
 
-        if (score < bestScore) { bestScore = score; best = { name, asAnchor }; }
+        if (!eligible) continue;
+        // Use dragged card's center distance to the viewport corner as tiebreaker —
+        // prevents wide cards spanning multiple snap zones from always picking the first corner in the list
+        const cornerDist = toCorner(rect, name);
+        if (cornerDist < bestCornerDist) { bestCornerDist = cornerDist; best = { name, asAnchor }; }
       }
 
       if (!best) return;
