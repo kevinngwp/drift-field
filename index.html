@@ -132,8 +132,6 @@
     padding: 8px 16px;
     cursor: pointer;
     flex-shrink: 0;
-    align-self: flex-start;
-    margin-left: auto;
     background: rgba(38, 37, 31, 0.5);
     border-radius: 999px;
     box-shadow: inset 0 1px 0 rgba(255,250,240,0.2), 0 8px 28px rgba(38,37,31,0.2);
@@ -279,7 +277,6 @@
     .top-controls { flex-direction: column; }
     .hint { font-size: 11px; padding: 12px 16px; }
     .top-controls .hint { align-self: stretch; }
-    .reset-btn { margin-left: 0; align-self: flex-start; }
     .legend { font-size: 10px; padding: 12px 16px; }
     #corner-br { bottom: 76px; }
   }
@@ -324,14 +321,13 @@
       <div class="hint-desc">+/- changes drift speed · speed: <span class="speed-label">1.00×</span></div>
     </div>
   </div>
-  <button class="reset-btn" id="reset">Clear field</button>
 </div>
 <div class="logo">
   <img src="wordmark.svg" alt="Drift Field" width="198" height="29">
   <div class="logo-tooltip">An interactive typographic experiment by <a href="https://kevin-ng.work" target="_blank" rel="noopener">Kevin Ng</a><br>— click and mess around with letters in motion.</div>
 </div>
 <div id="corner-tl" class="corner-stack corner-tl"></div>
-<div id="corner-tr" class="corner-stack corner-tr"></div>
+<div id="corner-tr" class="corner-stack corner-tr"><button class="reset-btn" id="reset">Clear field</button></div>
 <div id="corner-bl" class="corner-stack corner-bl"></div>
 <div id="corner-br" class="corner-stack corner-br"><div class="legend">
   <div><span>&uarr;</span>up — pushes the field up</div>
@@ -739,39 +735,29 @@
     }
   }
 
-  // Adjust #corner-tr top so it starts below the floating reset btn
-  function updateCornerTrTop() {
-    const cornerTr = document.getElementById('corner-tr');
-    if (btn.parentElement === document.body) {
-      cornerTr.style.top = (btn.getBoundingClientRect().bottom + 8) + 'px';
+  // Insert a card into a corner container. In TR, cards go before the reset btn
+  // so they always claim the anchor slot regardless of whether btn is present.
+  function snapToCorner(el, corner) {
+    const container = document.getElementById('corner-' + corner);
+    if (corner === 'tr' && container.contains(btn)) {
+      container.insertBefore(el, btn);
     } else {
-      cornerTr.style.top = '20px';
+      container.appendChild(el);
     }
   }
 
   makeCard(
     hintEl,
-    () => {
-      btn.style.position = 'fixed';
-      btn.style.top = '20px';
-      btn.style.right = '20px';
-      btn.style.left = 'auto';
-      btn.style.margin = '0';
-      document.body.appendChild(btn);
-      updateCornerTrTop();
-    },
+    null,
     'tl',
     () => {
       hintEl.removeAttribute('style');
       hintEl.classList.remove('is-floating');
       tc.insertBefore(hintEl, tc.firstChild);
-      btn.removeAttribute('style');
-      tc.appendChild(btn);
       updateCornerTlTop();
-      updateCornerTrTop();
     },
     (corner) => {
-      document.getElementById('corner-' + corner).appendChild(hintEl);
+      snapToCorner(hintEl, corner);
       updateCornerTlTop();
     },
     null,
@@ -788,7 +774,7 @@
       document.getElementById('corner-br').prepend(legendEl);
     },
     (corner) => {
-      document.getElementById('corner-' + corner).appendChild(legendEl);
+      snapToCorner(legendEl, corner);
     },
     null,
     null
@@ -843,10 +829,9 @@
   measureMetrics();
   resize();
   updateCornerTlTop();
-  updateCornerTrTop();
-  new ResizeObserver(() => { resize(); scheduleRender(); updateCornerTlTop(); updateCornerTrTop(); }).observe(fieldEl);
+  new ResizeObserver(() => { resize(); scheduleRender(); updateCornerTlTop(); }).observe(fieldEl);
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => { measureMetrics(); resize(); scheduleRender(); updateCornerTlTop(); updateCornerTrTop(); });
+    document.fonts.ready.then(() => { measureMetrics(); resize(); scheduleRender(); updateCornerTlTop(); });
   }
   render();
 
