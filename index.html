@@ -302,22 +302,9 @@
       </div>
     </div>
     <div class="hint-mobile">
-      <div class="mobile-desc">Tap to drop a point · drag to move it</div>
-      <div class="mobile-row">
-        <button class="dir-btn active" data-type="U">↑</button>
-        <button class="dir-btn" data-type="D">↓</button>
-        <button class="dir-btn" data-type="L">←</button>
-        <button class="dir-btn" data-type="R">→</button>
-        <button class="dir-btn" data-type="S">S</button>
-      </div>
-      <div class="mobile-row">
-        <button class="ctrl-btn" id="speed-down">−</button>
-        <span class="speed-label speed-display">1.0×</span>
-        <button class="ctrl-btn" id="speed-up">+</button>
-      </div>
-      <div class="mobile-row">
-        <button class="ctrl-btn" id="undo-btn">Undo last</button>
-      </div>
+      <div class="hint-desc">Tap to drop a point · drag to move</div>
+      <div class="hint-desc">↑ ↓ ← → S — direction</div>
+      <div class="hint-desc">−/+ — speed &nbsp; ⌫ — undo</div>
     </div>
   </div>
   <button class="reset-btn" id="reset">Clear field</button>
@@ -367,7 +354,7 @@
     });
   }
 
-  // Mobile controls
+  // Mobile controls (guarded — elements may not exist if hint-mobile is text-only)
   document.querySelectorAll('.dir-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -375,15 +362,15 @@
       updateDirButtons();
     });
   });
-  document.getElementById('speed-down').addEventListener('click', (e) => {
+  document.getElementById('speed-down')?.addEventListener('click', (e) => {
     e.stopPropagation();
     setSpeed(speedMultiplier - SPEED_STEP);
   });
-  document.getElementById('speed-up').addEventListener('click', (e) => {
+  document.getElementById('speed-up')?.addEventListener('click', (e) => {
     e.stopPropagation();
     setSpeed(speedMultiplier + SPEED_STEP);
   });
-  document.getElementById('undo-btn').addEventListener('click', (e) => {
+  document.getElementById('undo-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     points.pop();
     userInteracted = true;
@@ -596,7 +583,7 @@
   });
 
   // Unified card controller: drag + visual corner handles + snap to any corner
-  function makeCard(el, onFirstDetach, homeCorner, onHome) {
+  function makeCard(el, onFirstDetach, homeCorner, onHome, onNonHomeSnap) {
     let pendingDetach = onFirstDetach;
 
     // Visual corner handles — decorative only, no resize
@@ -652,6 +639,7 @@
       el.style.left = best.left;
       el.style.right = best.right;
       el.style.bottom = best.bottom;
+      if (onNonHomeSnap) onNonHomeSnap(best.name);
     }
 
     let dragX, dragY, dragging = false;
@@ -704,6 +692,20 @@
       tc.insertBefore(hintEl, tc.firstChild);
       btn.removeAttribute('style');
       tc.appendChild(btn);
+    },
+    (corner) => {
+      if (corner === 'tr') {
+        // Stack Clear button below hint when both land in top-right
+        requestAnimationFrame(() => {
+          const hRect = hintEl.getBoundingClientRect();
+          btn.style.position = 'fixed';
+          btn.style.top = (hRect.bottom + 8) + 'px';
+          btn.style.right = '20px';
+          btn.style.left = 'auto';
+          btn.style.margin = '0';
+          if (btn.parentElement !== document.body) document.body.appendChild(btn);
+        });
+      }
     }
   );
 
@@ -714,6 +716,14 @@
     () => {
       legendEl.removeAttribute('style');
       legendEl.classList.remove('is-floating');
+    },
+    (corner) => {
+      if (corner === 'bl') {
+        // Stack above wordmark when legend lands in bottom-left
+        const logoRect = document.querySelector('.logo').getBoundingClientRect();
+        legendEl.style.top = 'auto';
+        legendEl.style.bottom = (window.innerHeight - logoRect.top + 10) + 'px';
+      }
     }
   );
 
