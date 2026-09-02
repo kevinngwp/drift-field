@@ -440,8 +440,9 @@
       setSpeed(speedMultiplier - SPEED_STEP);
     }
   });
-  function makeDraggable(el, onDetach) {
+  function makeDraggable(el, onDetach, snapCheck) {
     let startX, startY, active = false;
+    let pendingDetach = onDetach;
     el.addEventListener('pointerdown', (e) => {
       active = true;
       const rect = el.getBoundingClientRect();
@@ -454,7 +455,7 @@
       el.style.zIndex = '20';
       if (el.parentElement !== document.body) {
         document.body.appendChild(el);
-        if (onDetach) { onDetach(); onDetach = null; }
+        if (pendingDetach) { pendingDetach(); pendingDetach = null; }
       }
       startX = e.clientX - rect.left;
       startY = e.clientY - rect.top;
@@ -471,20 +472,50 @@
     el.addEventListener('pointerup', (e) => {
       active = false;
       el.style.cursor = 'grab';
+      if (snapCheck && snapCheck()) pendingDetach = onDetach;
       e.stopPropagation();
     });
     el.addEventListener('pointercancel', () => { active = false; el.style.cursor = 'grab'; });
   }
-  makeDraggable(document.querySelector('.hint'), () => {
-    const btn = document.getElementById('reset');
-    btn.style.position = 'fixed';
-    btn.style.top = '20px';
-    btn.style.right = '20px';
-    btn.style.left = 'auto';
-    btn.style.margin = '0';
-    document.body.appendChild(btn);
-  });
-  makeDraggable(document.querySelector('.legend'));
+  makeDraggable(
+    document.querySelector('.hint'),
+    () => {
+      const btn = document.getElementById('reset');
+      btn.style.position = 'fixed';
+      btn.style.top = '20px';
+      btn.style.right = '20px';
+      btn.style.left = 'auto';
+      btn.style.margin = '0';
+      document.body.appendChild(btn);
+    },
+    () => {
+      const hint = document.querySelector('.hint');
+      const rect = hint.getBoundingClientRect();
+      if (rect.top < 80 && rect.left < 80) {
+        hint.removeAttribute('style');
+        const tc = document.querySelector('.top-controls');
+        tc.insertBefore(hint, tc.firstChild);
+        const btn = document.getElementById('reset');
+        btn.removeAttribute('style');
+        tc.appendChild(btn);
+        return true;
+      }
+      return false;
+    }
+  );
+  makeDraggable(
+    document.querySelector('.legend'),
+    null,
+    () => {
+      const legend = document.querySelector('.legend');
+      const rect = legend.getBoundingClientRect();
+      if ((window.innerHeight - rect.bottom) < 80 && (window.innerWidth - rect.right) < 80) {
+        legend.removeAttribute('style');
+        return true;
+      }
+      return false;
+    }
+  );
   setSpeed(1);
   measureMetrics();
   resize();
