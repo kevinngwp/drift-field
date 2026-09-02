@@ -688,13 +688,13 @@
           if (minGap > CARD_PROX) continue;
           eligible = true;
           // If first child is a permanent element (logo/button), cards always stack second.
-          // Otherwise: anchor if the dragged card's center is in the same screen quadrant as this corner.
-          const cx = (rect.left + rect.right) / 2, cy = (rect.top + rect.bottom) / 2;
-          const inQuadrant = (name === 'tl' && cx < W/2 && cy < H/2) ||
-                             (name === 'tr' && cx > W/2 && cy < H/2) ||
-                             (name === 'bl' && cx < W/2 && cy > H/2) ||
-                             (name === 'br' && cx > W/2 && cy > H/2);
-          asAnchor = !isPermanent(children[0]) && inQuadrant;
+          // Otherwise: anchor if the dragged card's leading edge is past the anchor's leading edge
+          // on the primary axis — top edge for top corners, bottom edge for bottom corners.
+          const anchorRect = children[0].getBoundingClientRect();
+          const edgePast = (name === 'tl' || name === 'tr')
+            ? rect.top < anchorRect.top       // top corners: smaller top = closer to corner
+            : rect.bottom > anchorRect.bottom; // bottom corners: larger bottom = closer to corner
+          asAnchor = !isPermanent(children[0]) && edgePast;
         } else {
           if (centerToCorner(rect, name) > EMPTY_PROX) continue;
           eligible = true;
